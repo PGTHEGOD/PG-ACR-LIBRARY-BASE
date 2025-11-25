@@ -1,29 +1,24 @@
-# Use Node 20 as the base image
-FROM node:20-alpine AS base
-
-# Install dependencies for building
-RUN apk add --no-cache libc6-compat
-
-# Set working directory
+# Use Bun for dependency installs and builds
+FROM oven/bun:1.1 AS base
 WORKDIR /app
 
-# Copy package manifests
-COPY package.json pnpm-lock.yaml* package-lock.json* yarn.lock* ./
-
-# Install pnpm (if needed) and dependencies
-RUN corepack enable && pnpm install --frozen-lockfile
+# Copy dependency manifests and install with Bun
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 # Copy application files
 COPY . .
 
-# Build the Next.js application
-RUN pnpm build
+# Disable ESLint during the build as requested
+ENV NEXT_DISABLE_ESLINT=1
+RUN bun run build
 
 # Production image
-FROM node:20-alpine AS runner
+FROM oven/bun:1.1 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NEXT_DISABLE_ESLINT=1
 
 # Only copy necessary files
 COPY --from=base /app/public ./public
@@ -32,4 +27,4 @@ COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/node_modules ./node_modules
 
 EXPOSE 3000
-CMD ["pnpm", "start"]
+CMD ["bun", "run", "start"]
