@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { listClassRooms } from "@/lib/server/library-service"
+import { listClassRooms } from "@/lib/server/student-service"
 
 export const runtime = "nodejs"
 
