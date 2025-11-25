@@ -1,20 +1,23 @@
-# Use Bun for dependency installs and builds
-FROM oven/bun:1.1 AS base
+# Use Node 20 as the base image
+FROM node:20-alpine AS base
 WORKDIR /app
 
-# Copy dependency manifests and install with Bun
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+# Ensure required system libraries are present
+RUN apk add --no-cache libc6-compat
+
+# Copy dependency manifests and install with npm
+COPY package*.json ./
+RUN npm install
 
 # Copy application files
 COPY . .
 
 # Disable ESLint during the build as requested
 ENV NEXT_DISABLE_ESLINT=1
-RUN bun run build
+RUN npm run build
 
 # Production image
-FROM oven/bun:1.1 AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -27,4 +30,4 @@ COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/node_modules ./node_modules
 
 EXPOSE 3000
-CMD ["bun", "run", "start"]
+CMD ["npm", "run", "start"]
