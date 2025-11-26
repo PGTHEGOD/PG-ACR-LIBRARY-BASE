@@ -97,3 +97,18 @@ docker run -d -p 3000:3000 --env-file .env.production acr-library-base
 
 > *ขอบคุณครูและเพื่อน ๆ ที่ช่วยทดสอบระบบ หากมีข้อเสนอแนะเพิ่มเติมสามารถแจ้งโดยตรง เราพร้อมพัฒนาให้ห้องสมุดใช้งานจริงได้เต็มประสิทธิภาพ*
 
+
+## การเก็บรูปปกเมื่อใช้ Docker
+หากรันผ่าน Docker container แนะนำให้ map โฟลเดอร์ `public/uploads` ออกมาเป็น volume เพื่อให้ภาพที่อัปโหลดยังอยู่แม้จะ restart หรือ deploy ใหม่ เช่น
+
+```bash
+docker run \
+  -d -p 3000:3000 \
+  -v $(pwd)/uploads-data:/app/public/uploads \
+  --env-file .env.production \
+  acr-library-base
+```
+```
+- `uploads-data` คือโฟลเดอร์บนเครื่องจริงที่เราต้องการเก็บรูปถาวร
+- ภาพทั้งหมดจะถูกเสิร์ฟผ่าน `/uploads/...` ตามค่า `NEXT_PUBLIC_COVER_BASE_URL`
+```

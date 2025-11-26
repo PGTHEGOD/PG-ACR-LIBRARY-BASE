@@ -11,10 +11,9 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
-    const file: any = formData.get("cover")
+    const file = formData.get("cover")
 
-    // File existence check (Node.js safe)
-    if (!file || typeof file.arrayBuffer !== "function") {
+    if (!(file instanceof File)) {
       return NextResponse.json({ error: "ไม่พบไฟล์ภาพ" }, { status: 400 })
     }
 
@@ -34,7 +33,6 @@ export async function POST(request: NextRequest) {
     const uploadDir = process.env.COVER_UPLOAD_DIR || path.join(process.cwd(), "public/uploads")
 
     await fs.mkdir(uploadDir, { recursive: true })
-
     const filePath = path.join(uploadDir, fileName)
     await fs.writeFile(filePath, buffer)
 
