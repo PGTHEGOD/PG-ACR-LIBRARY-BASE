@@ -69,6 +69,7 @@ export default function Home() {
   const [studentError, setStudentError] = useState("")
   const [showRegister, setShowRegister] = useState(false)
 
+  const bookInputRef = useRef<HTMLInputElement | null>(null)
   const [bookCode, setBookCode] = useState("")
   const [activeBookCode, setActiveBookCode] = useState("")
 const [bookData, setBookData] = useState<BookRecord | null>(null)
@@ -189,6 +190,7 @@ const [missingBookCode, setMissingBookCode] = useState("")
       setBookCode("")
       setQuickAddInvite(false)
       setQuickAddOpen(false)
+      bookInputRef.current?.focus()
     } catch (error) {
       setBookData(null)
       const message = (error as Error).message || "ไม่พบหนังสือ"
@@ -207,6 +209,7 @@ const [missingBookCode, setMissingBookCode] = useState("")
         setQuickAddOpen(false)
       }
       setBookCode("")
+      bookInputRef.current?.focus()
     } finally {
       setBookLoading(false)
     }
@@ -257,6 +260,7 @@ const [missingBookCode, setMissingBookCode] = useState("")
         throw new Error((payload as any)?.error || "ไม่สามารถดำเนินการได้")
       }
       setBookData(payload.book ?? null)
+      bookInputRef.current?.focus()
       setActiveBookCode(effectiveCode)
       await fetchStudent(studentProfile.student.studentCode)
       setBookMessage(action === "borrow" ? "บันทึกการยืมเรียบร้อย" : "บันทึกการคืนเรียบร้อย")
@@ -276,7 +280,8 @@ const [missingBookCode, setMissingBookCode] = useState("")
     setBookMessage("เพิ่มหนังสือใหม่แล้ว สามารถดำเนินการยืมได้ทันที")
     setQuickAddInvite(false)
     setQuickAddOpen(false)
-    setBookCode("")
+      setBookCode("")
+      bookInputRef.current?.focus()
     setActiveBookCode(record.assumptionCode)
     setMissingBookCode("")
   }
@@ -651,6 +656,7 @@ const [missingBookCode, setMissingBookCode] = useState("")
 
               <form onSubmit={handleBookSubmit} className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <Input
+                  ref={bookInputRef}
                   autoFocus
                   placeholder="เช่น A01234 หรือสแกนจากเครื่องยิง"
                   value={bookCode}
