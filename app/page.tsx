@@ -165,7 +165,10 @@ const [missingBookCode, setMissingBookCode] = useState("")
   }
 
   const fetchBook = async (code: string) => {
-    const trimmed = code.trim()
+    let trimmed = code.trim()
+    if (trimmed.length > 0 && trimmed.length < 6) {
+      trimmed = trimmed.padStart(6, "0")
+    }
     if (!trimmed) {
       setBookMessage("กรุณากรอกรหัสหนังสือ")
       setBookData(null)
@@ -194,7 +197,11 @@ const [missingBookCode, setMissingBookCode] = useState("")
       if (message.includes("ไม่พบ") && scannedCode) {
         setQuickAddInvite(true)
         setQuickAddOpen(false)
-        setMissingBookCode(scannedCode)
+        let paddedCode = scannedCode
+        if (paddedCode.length > 0 && paddedCode.length < 6) {
+          paddedCode = paddedCode.padStart(6, "0")
+        }
+        setMissingBookCode(paddedCode)
       } else {
         setQuickAddInvite(false)
         setQuickAddOpen(false)
@@ -211,7 +218,10 @@ const [missingBookCode, setMissingBookCode] = useState("")
       setBookMessage("กรุณาเลือกรหัสนักเรียนก่อน")
       return
     }
-    const trimmed = bookCode.trim()
+    let trimmed = bookCode.trim()
+    if (trimmed.length > 0 && trimmed.length < 6) {
+      trimmed = trimmed.padStart(6, "0")
+    }
     if (!trimmed) {
       setBookMessage("กรุณากรอกรหัสหนังสือ")
       return
@@ -225,7 +235,10 @@ const [missingBookCode, setMissingBookCode] = useState("")
       setBookMessage("กรุณาเลือกรหัสนักเรียนก่อน")
       return
     }
-    const trimmed = bookCode.trim()
+    let trimmed = bookCode.trim()
+    if (trimmed.length > 0 && trimmed.length < 6) {
+      trimmed = trimmed.padStart(6, "0")
+    }
     const effectiveCode = trimmed || activeBookCode
     if (!effectiveCode) {
       setBookMessage("กรุณากรอกรหัสหนังสือ")

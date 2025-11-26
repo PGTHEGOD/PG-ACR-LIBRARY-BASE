@@ -195,9 +195,15 @@ export async function addBook(input: BookInput): Promise<BookRecord> {
 export async function getBookByCode(code: string | undefined | null): Promise<BookRecord | null> {
   const trimmed = (code ?? "").trim()
   if (!trimmed) return null
+  const padded = trimmed.length < 6 && trimmed.length > 0 ? trimmed.padStart(6, "0") : trimmed
+  const unpadded = trimmed.replace(/^0+/, "") || "0"
+
   const rows = await queryRows(
-    `SELECT * FROM library_books WHERE assumption_code = ? OR barcode = ? LIMIT 1`,
-    [trimmed, trimmed]
+    `SELECT * FROM library_books
+      WHERE assumption_code IN (?, ?, ?)
+         OR barcode IN (?, ?)
+      LIMIT 1`,
+    [trimmed, padded, unpadded, trimmed, padded]
   )
   if (!rows.length) return null
   return mapBookRow(rows[0])
