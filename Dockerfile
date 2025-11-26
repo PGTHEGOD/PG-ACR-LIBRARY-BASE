@@ -29,5 +29,8 @@ COPY --from=base /app/.next ./.next
 COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/node_modules ./node_modules
 
+# Ensure uploads directory exists even when repo has no files yet
+RUN mkdir -p /app/public/uploads
+
 EXPOSE 3000
 CMD ["npm", "run", "start"]
