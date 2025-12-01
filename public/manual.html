@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>คู่มือระบบ Library-BASE</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 25mm 18mm 25mm;
+    }
+    @media print {
+      body {
+        background: #ffffff;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      header.cover-page {
+        page-break-after: always;
+      }
+    }
+    body { font-family: "Sarabun","Noto Sans Thai", sans-serif; line-height: 1.65; color: #0f172a; margin: 0; padding: 30px 40px 40px; background: #f7f9fc; }
+    h1, h2, h3 { color: #0f172a; margin-top: 32px; }
+    h1 { font-size: 34px; border-bottom: 3px solid #2563eb; padding-bottom: 10px; letter-spacing: 0.02em; }
+    h2 { font-size: 26px; border-left: 5px solid #2563eb; padding-left: 12px; }
+    h3 { font-size: 20px; }
+    p { margin: 12px 0; }
+    ul { margin: 8px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; background: #fff; }
+    th, td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; }
+    th { background: #f1f5fb; }
+    code { background: #f1f5fa; padding: 2px 5px; border-radius: 4px; }
+    .toc { background: #ffffff; border: 1px solid #dce4f7; border-radius: 12px; padding: 20px; }
+    .section { background: #ffffff; border-radius: 18px; border: 1px solid #e2e8f0; padding: 24px 28px; margin: 32px 0; }
+    .callout { border-left: 4px solid #2563eb; background: #eff5ff; padding: 10px 16px; border-radius: 10px; margin: 16px 0; }
+    .image-slot { border: 2px dashed #94a3b8; border-radius: 12px; padding: 16px; text-align: center; color: #64748b; font-size: 14px; margin: 16px 0; min-height: 100px; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+    .image-slot img { max-width: 100%; height: auto; border-radius: 10px; margin-top: 10px; }
+    .pill { display: inline-block; background: #dfefff; color: #1d4ed8; padding: 2px 10px; border-radius: 999px; font-size: 13px; margin-right: 6px; }
+    footer { margin-top: 40px; font-size: 13px; color: #64748b; text-align: center; }
+    a { color: #2563eb; text-decoration: none; }
+    header.cover-page {
+      /* background: linear-gradient(135deg, #1e3a8a, #2563eb); */
+      color: #0f172a;
+      border-radius: 24px;
+      padding: 60px 50px 120px;
+      margin-bottom: 40px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(30, 64, 175, 0.35);
+    }
+    header.cover-page p {
+      color: #000000;
+      font-size: 18px;
+    }
+    header.cover-page .meta {
+      margin-top: 60px;
+      font-size: 16px;
+      color: #000000;
+    }
+    .page-break {
+      margin: 40px 0;
+      border-top: 2px dashed #cbd5f5;
+    }
+  </style>
+</head>
+<body>
+  <header class="cover-page">
+    <h1>คู่มือระบบ ยืม-คืนหนังสือระบบห้องสมุด</h1>
+    <p>
+      หนังสือเล่มนี้รวบรวมคู่มือผู้ใช้และคู่มือผู้พัฒนาสำหรับระบบ 
+      เพื่อให้ครูบรรณารักษ์และทีมเทคนิคสามารถใช้งาน ดูแล และพัฒนาต่อยอดระบบได้อย่างเต็มประสิทธิภาพ
+    </p>
+    <div class="meta">
+      จัดทำโดย: PG Dev. (Akarapach Yootsukprasert)<br />
+      โรงเรียนอัสสัมชัญระยอง · ปีการศึกษา 2025
+    </div>
+  </header>
+
+  <div class="page-break" aria-hidden="true"></div>
+
+  <section class="section toc-section">
+
+  <nav class="toc">
+    <h2>สารบัญ</h2>
+    <ul>
+      <li><a href="#user-manual">คู่มือผู้ใช้ (User Manual)</a>
+        <ul>
+          <li><a href="#user-intro">แนะนำระบบและเข้าใช้งาน</a></li>
+          <li><a href="#user-borrow-return">การยืม / คืน</a></li>
+          <li><a href="#user-book-management">การจัดการหนังสือ</a></li>
+          <li><a href="#user-import-export">การนำเข้า / ส่งออก</a></li>
+        </ul>
+      </li>
+      <li><a href="#developer-manual">คู่มือผู้พัฒนา (Developer Manual)</a>
+        <ul>
+          <li><a href="#dev-architecture">โครงสร้างระบบ</a></li>
+          <li><a href="#dev-setup">การติดตั้งและรันระบบ</a></li>
+          <li><a href="#dev-config">การตั้งค่าตัวแปรสภาพแวดล้อม</a></li>
+          <li><a href="#dev-api">API สำคัญ</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <div class="page-break" aria-hidden="true"></div>
+
+  <section id="user-manual" class="section">
+    <h2>คู่มือผู้ใช้ (User Manual)</h2>
+    <p>
+      ส่วนนี้ออกแบบสำหรับครูบรรณารักษ์และเจ้าหน้าที่ห้องสมุดในการใช้งานระบบประจำวัน
+      ตั้งแต่การเข้าสู่ระบบ การยืม-คืน การเพิ่มหนังสือใหม่ ไปจนถึงการนำเข้า/ส่งออกข้อมูล
+    </p>
+
+    <article id="user-intro">
+      <h3>1. แนะนำระบบและเข้าใช้งาน</h3>
+
+      <div class="image-slot"><img src="login.png" alt="Login"></div>
+
+      <p>ก่อนใช้งานระบบทุกครั้ง จำเป็นต้องปลดล็อกผ่านรหัส <code>LIBRARY_ACCESS_CODE</code> เพื่อจำกัดการใช้งานเฉพาะเครื่องที่อนุญาต</p>
+      <ol>
+        <li>เปิดเบราว์เซอร์ไปที่ URL ของระบบ</li>
+        <li>ระบุรหัสผ่านอุปกรณ์ (Device Access)</li>
+        <li>เมื่อปลดล็อกสำเร็จจะเข้าสู่หน้าหลักซึ่งแสดงข้อมูลนักเรียน ยอดยืม ยอดคืน และเมนูลัดต่าง ๆ</li>
+      </ol>
+
+      <div class="callout">
+        <strong>Tip:</strong> หากระบบจดจำอุปกรณ์แล้ว สามารถเข้าใช้งานได้ทันทีโดยไม่ต้องกรอกรหัสซ้ำภายในระยะเวลาที่กำหนด
+      </div>
+    </article>
+    <br><br><br><br>
+    <article id="user-borrow-return">
+      <h3>2. การยืม / คืน</h3>
+
+      <div class="image-slot" ><img src="borrow.png" alt="Borrow"></div>
+
+      <h4>2.1 การยืมหนังสือ</h4>
+      <ol>
+        <li>ค้นหารหัสนักเรียนเพื่อเปิดโปรไฟล์</li>
+        <li>กรอกหรือสแกนรหัสหนังสือ (Assumption Code หรือ Barcode)</li>
+        <li>ตรวจสอบข้อมูลเล่ม หากระบบแจ้งเตือนว่าถูกยืมแล้ว ให้ตรวจสอบสถานะก่อน</li>
+        <li>ยืนยันการยืม ระบบจะเพิ่มประวัติและล็อกจำนวนยืมไม่ให้เกิน 2 เล่ม</li>
+      </ol>
+
+      <h4>2.2 การคืนหนังสือ</h4>
+      <ol>
+        <li>ค้นหานักเรียนหรือสแกนรหัสหนังสือที่ต้องการคืน</li>
+        <li>เมื่อระบบยืนยันว่าเล่มนี้อยู่ในสถานะ “กำลังยืม” ของนักเรียน กด “คืนหนังสือ”</li>
+        <li>ระบบจะปลดล็อกจำนวนยืม และให้คะแนน +5 (แสดงในประวัติ)</li>
+      </ol>
+
+      <div class="callout">
+        <strong>หมายเหตุ:</strong> ถ้านักเรียนยืมครบ 2 เล่ม ระบบจะไม่อนุญาตให้ยืมเพิ่มจนกว่าจะคืนครบและปลดล็อกอัตโนมัติ
+      </div>
+    </article>
+    <br><br>
+    <article id="user-book-management">
+      <h3>3. การจัดการหนังสือ</h3>
+
+      <div class="image-slot"><img src="book-manage.png" alt="Book Management"></div>
+
+      <h4>3.1 เพิ่มหนังสือแบบปกติ</h4>
+      <ol>
+        <li>เข้าสู่เมนู “ฐานข้อมูลหนังสือ”</li>
+        <li>กดปุ่ม “เพิ่มหนังสือ” เพื่อเปิดฟอร์ม</li>
+        <li>เลือกรูปแบบรหัสอัสสัมได้สองแบบ:
+          <ul>
+            <li><span class="pill">กำหนดเอง</span> กรอกและกด “ตรวจสอบรหัส” เพื่อป้องกันข้อมูลซ้ำ</li>
+            <li><span class="pill">สุ่มอัตโนมัติ</span> ระบบจะสุ่มรหัส 6 หลักและตรวจสอบให้อัตโนมัติ</li>
+          </ul>
+        </li>
+        <li>กรอกข้อมูล (ชื่อหนังสือ ผู้แต่ง หมวดหมู่ ISBN ฯลฯ) แล้วกด “บันทึก”</li>
+      </ol>
+
+      <div class="image-slot"><img src="add-book.png" alt="Add Book"></div>
+
+      <h4>3.2 Quick Add ระหว่างยืม-คืน</h4>
+      <p>หากสแกนแล้วไม่พบเล่ม สามารถกด “+ เพิ่มข้อมูลหนังสือจากรหัสนี้” เพื่อเปิดฟอร์ม Quick Add ได้</p>
+      <ul>
+        <li>รองรับการดึงข้อมูลจากบาร์โค้ด (Open Library) เพื่อช่วยกรอกอัตโนมัติ</li>
+        <li>มีตัวเลือก “สุ่มรหัสอัสสัม” เช่นเดียวกับหน้า Book Management</li>
+        <li>หลังบันทึกสำเร็จ ระบบจะกลับมาหน้ายืมและสามารถทำรายการต่อได้ทันที</li>
+      </ul>
+      <div class="image-slot"><img src="quick-add.png" alt="Quick Add"></div>
+
+      <div class="callout">
+        <strong>ตรวจสอบรหัสซ้ำทั้งระบบ:</strong> ใช้ปุ่ม “ตรวจสอบรหัสทั้งหมด” ในหน้า Book Management เพื่อหาว่ามีรหัสใดซ้ำในฐานข้อมูลหรือไม่ ผลลัพธ์จะแสดงรายการตัวอย่างและจำนวนเล่มที่ต้องแก้ไข
+      </div>
+    </article>
+
+    <article id="user-import-export">
+      <h3>4. การนำเข้า / ส่งออก</h3>
+
+      <h4>4.1 นำเข้า JSON</h4>
+      <ol>
+        <li>กด “นำเข้า JSON” เลือกไฟล์ หรือวาง JSON ลงในช่อง</li>
+        <li>ระบบจะแสดงจำนวนรายการทั้งหมด ซ้ำ ข้าม และแจ้งเตือนหากข้อมูลไม่ครบ</li>
+        <li>กรณีต้องการลบเล่มที่ไม่มีในไฟล์ ให้ใช้ตัวเลือก “ลบหนังสือที่ไม่มีในไฟล์”</li>
+      </ol>
+
+      <h4>4.2 ส่งออก Excel</h4>
+      <p>กด “ส่งออก Excel” เพื่อดาวน์โหลดไฟล์ .xlsx ที่รวมข้อมูลครบทุกคอลัมน์ เช่น รหัสหนังสือ สถานะผู้ยืม กำหนดคืน ฯลฯ สำหรับจัดเก็บหรือสรุปรายงาน</p>
+
+    </article>
+  </section>
+
+  <div class="page-break" aria-hidden="true"></div>
+
+  <section id="developer-manual" class="section">
+    <h2>คู่มือผู้พัฒนา (Developer Manual)</h2>
+    <p>
+      เอกสารนี้เน้นรายละเอียดทางเทคนิคสำหรับนักพัฒนา เช่น การติดตั้ง ขึ้นระบบ การเชื่อมต่อฐานข้อมูล
+      และ API สำคัญต่าง ๆ
+    </p>
+
+    <article id="dev-architecture">
+      <h3>1. สถาปัตยกรรมและเทคโนโลยี</h3>
+      <table>
+        <tr>
+          <th>หัวข้อ</th>
+          <th>รายละเอียด</th>
+        </tr>
+        <tr>
+          <td>Framework</td>
+          <td>Next.js 16 (App Router) + React 19</td>
+        </tr>
+        <tr>
+          <td>ฐานข้อมูล</td>
+          <td>MySQL (ตารางหลัก: <code>students</code>, <code>library_books</code>, <code>library_loans</code>, <code>library_scores</code>)</td>
+        </tr>
+        <tr>
+          <td>UI Components</td>
+          <td>shadcn/ui + Tailwind (ผ่าน PostCSS)</td>
+        </tr>
+        <tr>
+          <td>Tools</td>
+          <td>TypeScript, pnpm, Docker (deploy), QR/Barcode via API</td>
+        </tr>
+      </table>
+    </article>
+
+    <article id="dev-setup">
+      <h3>2. ขั้นตอนติดตั้งและรันระบบ</h3>
+      <ol>
+        <li>โคลนโปรเจ็กต์และติดตั้ง dependencies
+          <pre><code>pnpm install</code></pre>
+        </li>
+        <li>คัดลอกไฟล์ตัวอย่าง env
+          <pre><code>cp env.example .env.local</code></pre>
+        </li>
+       
+        <li>กรณี Production:
+         </pre>
+          หรือใช้ Docker ตามไฟล์ <code>Dockerfile</code>
+        </li>
+      </ol>
+    </article>
+
+    <article id="dev-config">
+      <h3>3. Environment Variables</h3>
+      <table>
+        <tr><th>ตัวแปร</th><th>คำอธิบาย</th></tr>
+        <tr><td><code>LIBRARY_ACCESS_CODE</code></td><td>รหัสปลดล็อกอุปกรณ์สำหรับครู</td></tr>
+        <tr><td><code>MYSQL_HOST / PORT / USER / PASSWORD / DATABASE</code></td><td>การเชื่อมต่อ MySQL จริง</td></tr>
+        <tr><td><code>COVER_UPLOAD_DIR</code></td><td>โฟลเดอร์เก็บรูปปก (เช่น <code>public/uploads</code>)</td></tr>
+        <tr><td><code>NEXT_PUBLIC_COVER_BASE_URL</code></td><td>URL สำหรับโหลดรูปปก (ใช้ใน Client)</td></tr>
+      </table>
+    </article>
+
+    <article id="dev-api">
+      <h3>4. API สำคัญและจุดขยาย</h3>
+      <ul>
+        <li><code>/api/library/books</code> (GET/POST/PUT/DELETE)
+          <ul>
+            <li>ใช้จัดการข้อมูลหนังสือ</li>
+            <li>POST ต้องส่ง <code>assumptionCode</code> ไม่ซ้ำ (ระบบมีปุ่มตรวจสอบ)</li>
+          </ul>
+        </li>
+        <li><code>/api/library/books/borrow</code> และ <code>/api/library/books/return</code>
+          <ul>
+            <li>รองรับการยืม/คืน พร้อมตรวจสอบโควตา 2 เล่ม</li>
+            <li>เมื่อคืนสำเร็จ ระบบจะเรียก <code>adjustPoints</code> เพื่อบันทึก +5</li>
+          </ul>
+        </li>
+        <li><code>/api/library/books/import</code> และ <code>/api/library/books/cover</code>
+          <ul>
+            <li>Batch import ขนาดใหญ่ (Chunk 200 รายการ)</li>
+            <li>อัปโหลดรูปปกจากฟอร์ม</li>
+          </ul>
+        </li>
+      </ul>
+
+
+      <div class="callout">
+        <strong>คำแนะนำ:</strong> เมื่อต้องเชื่อมต่อระบบอื่น ให้ใช้ API ที่มีอยู่หรือสร้าง route ใหม่ใน <code>/app/api/...</code> และใช้ service layer ใน <code>lib/server/library-service.ts</code> เพื่อคงโครงสร้างเดิม
+      </div>
+    </article>
+  </section>
+
+  <footer>
+    © 2025 Assumption College Rayong · Dev by Park AKA PG Dev.
+  </footer>
+</body>
+</html>
