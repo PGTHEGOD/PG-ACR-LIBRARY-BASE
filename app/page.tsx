@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { BookRecord, LoanRecord, ScoreEntry, LibraryStudentProfile } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label"
 import { ScanLine, BookOpenCheck, History, Sparkles } from "lucide-react"
 import StudentRegister from "@/components/student-register"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { generateRandomAssumptionCode } from "@/lib/utils/book-code"
 
 interface BorrowResponse {
   book: BookRecord | null
@@ -821,18 +823,113 @@ function QuickAddBookForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [metadataStatus, setMetadataStatus] = useState("")
+  const [assumptionCodeMode, setAssumptionCodeMode] = useState<"manual" | "auto">(code?.trim() ? "manual" : "auto")
+  const [assumptionCodeValidation, setAssumptionCodeValidation] = useState<{
+    status: "idle" | "checking" | "available" | "taken" | "error"
+    message: string
+    code?: string
+  }>({ status: "idle", message: "", code: undefined })
+  const [randomizingCode, setRandomizingCode] = useState(false)
+  const resetAssumptionCodeValidation = useCallback(() => {
+    setAssumptionCodeValidation({ status: "idle", message: "", code: undefined })
+  }, [])
+  const validateAssumptionCode = useCallback(
+    async (
+      codeOverride?: string
+    ): Promise<{ available: boolean; message: string; code?: string }> => {
+      const codeToCheck = (codeOverride ?? form.assumptionCode).trim()
+      if (!codeToCheck) {
+        const message = "กรุณากรอกรหัสอัสสัมก่อนตรวจสอบ"
+        setAssumptionCodeValidation({ status: "error", message, code: undefined })
+        return { available: false, message }
+      }
+      setAssumptionCodeValidation({ status: "checking", message: "", code: codeToCheck })
+      try {
+        const response = await fetch(`/api/library/books/${encodeURIComponent(codeToCheck)}`)
+        if (response.status === 404) {
+          const message = `รหัส ${codeToCheck} พร้อมใช้งาน`
+          setAssumptionCodeValidation({ status: "available", message, code: codeToCheck })
+          return { available: true, message, code: codeToCheck }
+        }
+        if (response.ok) {
+          const existing = await response.json().catch(() => ({}))
+          const message = `รหัส ${codeToCheck} ถูกใช้งานแล้ว${existing.title ? ` (${existing.title})` : ""}`
+          setAssumptionCodeValidation({ status: "taken", message, code: codeToCheck })
+          return { available: false, message, code: codeToCheck }
+        }
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload.error || "ตรวจสอบรหัสไม่สำเร็จ")
+      } catch (validationError) {
+        const message = (validationError as Error).message || "ตรวจสอบรหัสไม่สำเร็จ"
+        setAssumptionCodeValidation({ status: "error", message, code: codeToCheck })
+        return { available: false, message, code: codeToCheck }
+      }
+    },
+    [form.assumptionCode]
+  )
+  const findAvailableAssumptionCode = useCallback(async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const candidate = generateRandomAssumptionCode()
+      const result = await validateAssumptionCode(candidate)
+      if (result.available) {
+        return candidate
+      }
+    }
+    throw new Error("ไม่พบรหัสอัสสัมที่ว่าง กรุณากรอกเอง")
+  }, [validateAssumptionCode])
+  const handleRandomizeAssumptionCode = useCallback(
+    async (force = false) => {
+      if (!force && assumptionCodeMode !== "auto") return
+      setRandomizingCode(true)
+      setError("")
+      try {
+        const candidate = await findAvailableAssumptionCode()
+        setForm((prev) => ({ ...prev, assumptionCode: candidate }))
+      } catch (randError) {
+        const message = (randError as Error).message || "ไม่พบรหัสอัสสัมที่ว่าง กรุณากรอกเอง"
+        setError(message)
+        setAssumptionCodeValidation({ status: "error", message, code: undefined })
+      } finally {
+        setRandomizingCode(false)
+      }
+    },
+    [assumptionCodeMode, findAvailableAssumptionCode]
+  )
+  const handleAssumptionCodeModeChange = useCallback(
+    async (mode: "manual" | "auto") => {
+      if (mode === assumptionCodeMode) return
+      setAssumptionCodeMode(mode)
+      if (mode === "auto") {
+        await handleRandomizeAssumptionCode(true)
+      } else {
+        resetAssumptionCodeValidation()
+      }
+    },
+    [assumptionCodeMode, handleRandomizeAssumptionCode, resetAssumptionCodeValidation]
+  )
 
   useEffect(() => {
     setForm(buildQuickAddDefaults(code))
     setError("")
     setMetadataStatus("")
-    if (code) {
-      loadMetadataFromBarcode(code, true)
+    const trimmed = code?.trim()
+    setAssumptionCodeMode(trimmed ? "manual" : "auto")
+    resetAssumptionCodeValidation()
+    if (trimmed) {
+      loadMetadataFromBarcode(trimmed, true)
+    } else {
+      void handleRandomizeAssumptionCode(true)
     }
-  }, [code])
+  }, [code, handleRandomizeAssumptionCode, resetAssumptionCodeValidation])
 
   const handleChange = (field: keyof QuickAddFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
+    if (field === "assumptionCode") {
+      if (assumptionCodeMode === "auto") {
+        setAssumptionCodeMode("manual")
+      }
+      resetAssumptionCodeValidation()
+    }
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -840,8 +937,20 @@ function QuickAddBookForm({
     setLoading(true)
     setError("")
     try {
+      const trimmedCode = form.assumptionCode.trim()
+      if (!trimmedCode) {
+        throw new Error("กรุณาระบุรหัสอัสสัม")
+      }
+      const alreadyValidated =
+        trimmedCode && assumptionCodeValidation.code === trimmedCode && assumptionCodeValidation.status === "available"
+      if (!alreadyValidated) {
+        const validationResult = await validateAssumptionCode(trimmedCode)
+        if (!validationResult.available) {
+          throw new Error(validationResult.message || `รหัส ${trimmedCode} ถูกใช้งานแล้ว`)
+        }
+      }
       const payload = {
-        assumptionCode: form.assumptionCode.trim(),
+        assumptionCode: trimmedCode,
         barcode: (form.barcode || form.assumptionCode).trim(),
         category: form.category.trim() || "ทั่วไป",
         shelfCode: form.shelfCode.trim() || "GEN",
@@ -994,13 +1103,73 @@ function QuickAddBookForm({
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-white/60 bg-white/80 p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <Label htmlFor="quick-assumption">รหัสอัสสัม</Label>
-          <Input
-            id="quick-assumption"
-            value={form.assumptionCode}
-            onChange={(event) => handleChange("assumptionCode", event.target.value)}
-            required
-          />
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <Label htmlFor="quick-assumption">รหัสอัสสัม</Label>
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span>รูปแบบ:</span>
+              <Select
+                value={assumptionCodeMode}
+                onValueChange={(value) => void handleAssumptionCodeModeChange(value as "manual" | "auto")}
+              >
+                <SelectTrigger className="h-8 w-32 px-2 text-xs">
+                  <SelectValue placeholder="เลือกโหมด" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">กำหนดเอง</SelectItem>
+                  <SelectItem value="auto">สุ่ม</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <Input
+                id="quick-assumption"
+                value={form.assumptionCode}
+                onChange={(event) => handleChange("assumptionCode", event.target.value)}
+                required
+                className="sm:flex-1"
+              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-none">
+                {assumptionCodeMode === "manual" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void validateAssumptionCode()}
+                    disabled={assumptionCodeValidation.status === "checking" || !form.assumptionCode.trim()}
+                    className="w-full sm:w-auto"
+                  >
+                    {assumptionCodeValidation.status === "checking" ? "กำลังตรวจสอบ..." : "ตรวจสอบรหัส"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleRandomizeAssumptionCode()}
+                    disabled={randomizingCode}
+                    className="w-full sm:w-auto"
+                  >
+                    {randomizingCode ? "กำลังสุ่ม..." : "สุ่มรหัส"}
+                  </Button>
+                )}
+              </div>
+            </div>
+            {assumptionCodeValidation.message ? (
+              <p
+                className={`text-xs ${
+                  assumptionCodeValidation.status === "available"
+                    ? "text-emerald-600"
+                    : assumptionCodeValidation.status === "checking"
+                      ? "text-slate-500"
+                      : "text-red-600"
+                }`}
+              >
+                {assumptionCodeValidation.message}
+              </p>
+            ) : null}
+          </div>
         </div>
         <div>
           <Label htmlFor="quick-barcode">บาร์โค้ด</Label>

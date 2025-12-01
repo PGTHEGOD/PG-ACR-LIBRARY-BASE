@@ -20,9 +20,9 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileDown, PlusCircle, Trash2, Upload, Pencil, ScanLine, Printer } from "lucide-react"
+import { FileDown, PlusCircle, Trash2, Upload, Pencil, ScanLine, Printer, ShieldCheck } from "lucide-react"
 import { createXlsxBlob } from "@/lib/xlsx"
-import { Value } from "@radix-ui/react-select"
+import { generateRandomAssumptionCode } from "@/lib/utils/book-code"
 
 interface BookFormState extends Omit<BookInput, "publishYear" | "pages" | "price"> {
   publishYear: string
@@ -211,6 +211,155 @@ export default function BooksPage() {
   const [subjectLines, setSubjectLines] = useState<string[]>(() => extractSubjectLines(defaultForm.subject))
   const [exporting, setExporting] = useState(false)
   const [coverUploadStatus, setCoverUploadStatus] = useState("")
+  const [assumptionCodeValidation, setAssumptionCodeValidation] = useState<{
+    status: "idle" | "checking" | "available" | "taken" | "error"
+    message: string
+    code?: string
+  }>({
+    status: "idle",
+    message: "",
+    code: undefined,
+  })
+  const [assumptionCodeMode, setAssumptionCodeMode] = useState<"manual" | "auto">("manual")
+  const [randomizingCode, setRandomizingCode] = useState(false)
+  const [assumptionCodeAudit, setAssumptionCodeAudit] = useState<{
+    type: "info" | "success" | "error"
+    message: string
+    duplicates?: Array<{ code: string; total: number; titles: string[] }>
+  } | null>(null)
+  const [validatingAssumptionCodes, setValidatingAssumptionCodes] = useState(false)
+  const resetAssumptionCodeValidation = useCallback(() => {
+    setAssumptionCodeValidation({ status: "idle", message: "", code: undefined })
+  }, [])
+  const validateAssumptionCode = useCallback(
+    async (
+      codeOverride?: string
+    ): Promise<{ available: boolean; message: string; code?: string }> => {
+      if (dialogMode === "edit") {
+        return { available: true, message: "", code: form.assumptionCode }
+      }
+      const code = (codeOverride ?? form.assumptionCode).trim()
+      if (!code) {
+        const message = "กรุณากรอกรหัสอัสสัมก่อนตรวจสอบ"
+        setAssumptionCodeValidation({ status: "error", message, code: undefined })
+        return { available: false, message }
+      }
+      setAssumptionCodeValidation({ status: "checking", message: "", code })
+      try {
+        const response = await fetch(`/api/library/books/${encodeURIComponent(code)}`)
+        if (response.status === 404) {
+          const message = `รหัส ${code} พร้อมใช้งาน`
+          setAssumptionCodeValidation({ status: "available", message, code })
+          return { available: true, message, code }
+        }
+        if (response.ok) {
+          const existing = await response.json().catch(() => ({}))
+          const message = `รหัส ${code} ถูกใช้งานแล้ว${existing.title ? ` (${existing.title})` : ""}`
+          setAssumptionCodeValidation({
+            status: "taken",
+            message,
+            code,
+          })
+          return { available: false, message, code }
+        }
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload.error || "ตรวจสอบรหัสไม่สำเร็จ")
+      } catch (error) {
+        const message = (error as Error).message || "ตรวจสอบรหัสไม่สำเร็จ"
+        setAssumptionCodeValidation({
+          status: "error",
+          message,
+          code,
+        })
+        return { available: false, message, code }
+      }
+    },
+    [dialogMode, form.assumptionCode]
+  )
+  const findAvailableAssumptionCode = useCallback(async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const candidate = generateRandomAssumptionCode()
+      const result = await validateAssumptionCode(candidate)
+      if (result.available) {
+        return candidate
+      }
+    }
+    throw new Error("ไม่พบรหัสอัสสัมที่ว่าง กรุณากรอกเอง")
+  }, [validateAssumptionCode])
+  const handleRandomizeAssumptionCode = useCallback(async () => {
+    if (dialogMode === "edit") return
+    setRandomizingCode(true)
+    setFormError("")
+    try {
+      const candidate = await findAvailableAssumptionCode()
+      setForm((prev) => ({ ...prev, assumptionCode: candidate }))
+    } catch (error) {
+      const message = (error as Error).message || "ไม่พบรหัสอัสสัมที่ว่าง กรุณากรอกเอง"
+      setFormError(message)
+      setAssumptionCodeValidation({
+        status: "error",
+        message,
+        code: undefined,
+      })
+    } finally {
+      setRandomizingCode(false)
+    }
+  }, [dialogMode, findAvailableAssumptionCode])
+  const handleAssumptionCodeModeChange = useCallback(
+    async (mode: "manual" | "auto") => {
+      if (dialogMode === "edit") return
+      if (mode === assumptionCodeMode) return
+      setAssumptionCodeMode(mode)
+      if (mode === "auto") {
+        await handleRandomizeAssumptionCode()
+      } else {
+        resetAssumptionCodeValidation()
+      }
+    },
+    [assumptionCodeMode, dialogMode, handleRandomizeAssumptionCode, resetAssumptionCodeValidation]
+  )
+  const handleValidateAllAssumptionCodes = useCallback(async () => {
+    setValidatingAssumptionCodes(true)
+    setAssumptionCodeAudit({ type: "info", message: "กำลังตรวจสอบรหัสอัสสัมทั้งหมด..." })
+    try {
+      const allBooks = await fetchAllBooks()
+      if (!allBooks.length) {
+        setAssumptionCodeAudit({ type: "error", message: "ไม่มีข้อมูลหนังสือให้ตรวจสอบ" })
+        return
+      }
+      const duplicateMap = new Map<string, BookRecord[]>()
+      for (const book of allBooks) {
+        const code = book.assumptionCode?.trim()
+        if (!code) continue
+        const list = duplicateMap.get(code) ?? []
+        list.push(book)
+        duplicateMap.set(code, list)
+      }
+      const duplicates = Array.from(duplicateMap.entries())
+        .filter(([, list]) => list.length > 1)
+        .map(([code, list]) => ({
+          code,
+          total: list.length,
+          titles: list.map((item) => item.title).filter(Boolean).slice(0, 3),
+        }))
+      if (!duplicates.length) {
+        setAssumptionCodeAudit({ type: "success", message: "ไม่พบรหัสอัสสัมซ้ำในฐานข้อมูล" })
+      } else {
+        setAssumptionCodeAudit({
+          type: "error",
+          message: `พบรหัสอัสสัมซ้ำ ${duplicates.length} รหัส กรุณาตรวจสอบ`,
+          duplicates,
+        })
+      }
+    } catch (error) {
+      setAssumptionCodeAudit({
+        type: "error",
+        message: (error as Error).message || "ตรวจสอบรหัสอัสสัมทั้งหมดไม่สำเร็จ",
+      })
+    } finally {
+      setValidatingAssumptionCodes(false)
+    }
+  }, [fetchAllBooks])
   const barcodePreviewUrl = useMemo(() => {
     if (!barcodePreviewBook) return ""
     const code =
@@ -298,13 +447,18 @@ export default function BooksPage() {
     )
   }, [books, search])
 
-  const handleEditBook = useCallback((book: BookRecord) => {
-    setDialogMode("edit")
-    setForm(mapRecordToForm(book))
-    setSubjectLines(extractSubjectLines(book.subject))
-    setFormError("")
-    setDialogOpen(true)
-  }, [])
+  const handleEditBook = useCallback(
+    (book: BookRecord) => {
+      setDialogMode("edit")
+      setAssumptionCodeMode("manual")
+      setForm(mapRecordToForm(book))
+      setSubjectLines(extractSubjectLines(book.subject))
+      setFormError("")
+      resetAssumptionCodeValidation()
+      setDialogOpen(true)
+    },
+    [resetAssumptionCodeValidation]
+  )
 
   const handleDeleteBook = useCallback(async (book: BookRecord) => {
     if (!confirm(`ต้องการลบ ${book.title} (${book.assumptionCode}) ใช่หรือไม่?`)) return
@@ -398,7 +552,7 @@ export default function BooksPage() {
     setPage(1)
   }, [search])
 
-  const fetchAllBooks = async (): Promise<BookRecord[]> => {
+  const fetchAllBooks = useCallback(async (): Promise<BookRecord[]> => {
     const aggregated: BookRecord[] = []
     let currentPage = 1
     const chunkSize = 250
@@ -424,7 +578,7 @@ export default function BooksPage() {
       }
     }
     return aggregated
-  }
+  }, [])
 
   const buildPayload = (): BookInput => {
     const currentYear = new Date().getFullYear()
@@ -457,6 +611,20 @@ export default function BooksPage() {
     event.preventDefault()
     setFormError("")
     try {
+      if (dialogMode === "create") {
+        const trimmedCode = form.assumptionCode.trim()
+        const alreadyValidated =
+          trimmedCode &&
+          assumptionCodeValidation.code === trimmedCode &&
+          assumptionCodeValidation.status === "available"
+        if (!alreadyValidated) {
+          const result = await validateAssumptionCode(trimmedCode)
+          if (!result.available) {
+            setFormError(result.message || `รหัส ${trimmedCode} ถูกใช้งานแล้ว`)
+            return
+          }
+        }
+      }
       const payload = buildPayload()
       const method = dialogMode === "create" ? "POST" : "PUT"
       const response = await fetch("/api/library/books", {
@@ -477,6 +645,8 @@ export default function BooksPage() {
       setForm(defaultForm)
       setSubjectLines(extractSubjectLines(defaultForm.subject))
       setDialogMode("create")
+      setAssumptionCodeMode("manual")
+      resetAssumptionCodeValidation()
       setCoverUploadStatus("")
       if (coverFileRef.current) {
         coverFileRef.current.value = ""
@@ -863,12 +1033,23 @@ export default function BooksPage() {
                 <Printer className="mr-2 h-4 w-4" /> พิมพ์แบบฟอร์มเพิ่มหนังสือ
               </Button>
               <Button
+                variant="outline"
+                className="h-10"
+                onClick={() => void handleValidateAllAssumptionCodes()}
+                disabled={validatingAssumptionCodes}
+              >
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                {validatingAssumptionCodes ? "กำลังตรวจสอบรหัส..." : "ตรวจสอบรหัสทั้งหมด"}
+              </Button>
+              <Button
                 className="h-10"
                 onClick={() => {
                   setDialogMode("create")
+                  setAssumptionCodeMode("manual")
                   setForm(defaultForm)
                   setSubjectLines(extractSubjectLines(defaultForm.subject))
                   setFormError("")
+                  resetAssumptionCodeValidation()
                   setDialogOpen(true)
                 }}
               >
@@ -877,6 +1058,35 @@ export default function BooksPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
+            {assumptionCodeAudit && (
+              <div
+                className={`rounded-xl border p-3 text-sm ${
+                  assumptionCodeAudit.type === "success"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : assumptionCodeAudit.type === "error"
+                      ? "border-red-200 bg-red-50 text-red-900"
+                      : "border-slate-200 bg-slate-50 text-slate-700"
+                }`}
+              >
+                <p>{assumptionCodeAudit.message}</p>
+                {assumptionCodeAudit.duplicates?.length ? (
+                  <ul className="mt-2 space-y-1 text-xs">
+                    {assumptionCodeAudit.duplicates.slice(0, 3).map((duplicate) => (
+                      <li key={duplicate.code}>
+                        <span className="font-semibold">{duplicate.code}</span> ·{" "}
+                        {duplicate.titles.join(", ") || "ไม่พบชื่อหนังสือ"}{" "}
+                        {duplicate.total > duplicate.titles.length ? `(+${duplicate.total - duplicate.titles.length} เล่ม)` : ""}
+                      </li>
+                    ))}
+                    {assumptionCodeAudit.duplicates.length > 3 && (
+                      <li className="text-slate-500">
+                        ...และอีก {assumptionCodeAudit.duplicates.length - 3} รหัส
+                      </li>
+                    )}
+                  </ul>
+                ) : null}
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-3 justify-between">
               <Input
                 placeholder="ค้นหาตามชื่อ/หมวด/รหัส"
@@ -956,14 +1166,88 @@ export default function BooksPage() {
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="assumptionCode">เลขทะเบียนหนังสือ</Label>
-                  <Input
-                    id="assumptionCode"
-                    value={form.assumptionCode}
-                    onChange={(event) => setForm((prev) => ({ ...prev, assumptionCode: event.target.value }))}
-                    required
-                    disabled={dialogMode === "edit"}
-                  />
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <Label htmlFor="assumptionCode">เลขทะเบียนหนังสือ</Label>
+                    {dialogMode === "create" ? (
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>รูปแบบ:</span>
+                        <Select
+                          value={assumptionCodeMode}
+                          onValueChange={(value) => void handleAssumptionCodeModeChange(value as "manual" | "auto")}
+                        >
+                          <SelectTrigger className="h-8 w-32 px-2 text-xs" disabled={dialogMode === "edit"}>
+                            <SelectValue placeholder="เลือกโหมด" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">กำหนดเอง</SelectItem>
+                            <SelectItem value="auto">สุ่ม</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <Input
+                        id="assumptionCode"
+                        value={form.assumptionCode}
+                        onChange={(event) => {
+                          const value = event.target.value
+                          setForm((prev) => ({ ...prev, assumptionCode: value }))
+                          if (assumptionCodeMode === "manual") {
+                            resetAssumptionCodeValidation()
+                          }
+                        }}
+                        required
+                        disabled={dialogMode === "edit" || assumptionCodeMode === "auto"}
+                        readOnly={assumptionCodeMode === "auto"}
+                        className="sm:flex-1"
+                      />
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-none">
+                        {assumptionCodeMode === "manual" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setFormError("")
+                              void validateAssumptionCode()
+                            }}
+                            disabled={
+                              dialogMode === "edit" ||
+                              assumptionCodeValidation.status === "checking" ||
+                              !form.assumptionCode.trim()
+                            }
+                            className="w-full sm:w-auto"
+                          >
+                            {assumptionCodeValidation.status === "checking" ? "กำลังตรวจสอบ..." : "ตรวจสอบรหัส"}
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void handleRandomizeAssumptionCode()}
+                            disabled={randomizingCode}
+                            className="w-full sm:w-auto"
+                          >
+                            {randomizingCode ? "กำลังสุ่ม..." : "สุ่มรหัสใหม่"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {assumptionCodeValidation.message ? (
+                      <p
+                        className={`text-xs ${
+                          assumptionCodeValidation.status === "available"
+                            ? "text-emerald-600"
+                            : assumptionCodeValidation.status === "checking"
+                              ? "text-slate-500"
+                              : "text-red-600"
+                        }`}
+                      >
+                        {assumptionCodeValidation.message}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="barcode">บาร์โค้ด</Label>
