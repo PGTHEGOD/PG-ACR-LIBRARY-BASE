@@ -7,6 +7,10 @@ function sanitizeNumber(value: unknown, fallback: number): number {
   return Number.isFinite(numeric) ? numeric : fallback
 }
 
+function formatDateForQuery(date: Date): string {
+  return date.toISOString().slice(0, 19).replace("T", " ")
+}
+
 function sanitizeBookInput(input: BookInput): BookInput {
   const currentYear = new Date().getFullYear()
   return {
@@ -374,6 +378,80 @@ export async function importBooks(inputs: BookInput[]): Promise<{ processed: num
 export async function listBookCodes(): Promise<string[]> {
   const rows = await queryRows<{ assumption_code: string }>(`SELECT assumption_code FROM library_books`)
   return rows.map((row) => row.assumption_code)
+}
+
+export async function getMonthlyLoanReport(year: number, month: number) {
+  const safeMonth = Math.max(1, Math.min(12, month))
+  const targetYear = Number.isFinite(year) ? year : new Date().getFullYear()
+  const startDate = new Date(Date.UTC(targetYear, safeMonth - 1, 1, 0, 0, 0))
+  const endDate = new Date(Date.UTC(targetYear, safeMonth, 1, 0, 0, 0))
+  const startStr = formatDateForQuery(startDate)
+  const endStr = formatDateForQuery(endDate)
+
+  const transactionRows = await queryRows(
+    `SELECT l.assumption_code AS assumption_code,
+            l.title,
+            l.student_name AS student_name,
+            l.borrowed_at,
+            l.returned_at,
+            COALESCE(s.class_level, '') AS class_level,
+            COALESCE(b.category, '') AS category
+       FROM library_loans l
+       LEFT JOIN students s ON s.student_code = l.student_id
+       LEFT JOIN library_books b ON b.id = l.book_id
+      WHERE (l.borrowed_at >= ? AND l.borrowed_at < ?)
+         OR (l.returned_at IS NOT NULL AND l.returned_at >= ? AND l.returned_at < ?)
+      ORDER BY l.borrowed_at ASC`,
+    [startStr, endStr, startStr, endStr]
+  )
+
+  const classRows = await queryRows(
+    `SELECT COALESCE(s.class_level, 'ไม่ระบุ') AS class_level,
+            COUNT(*) AS total
+       FROM library_loans l
+       LEFT JOIN students s ON s.student_code = l.student_id
+      WHERE l.borrowed_at >= ? AND l.borrowed_at < ?
+      GROUP BY COALESCE(s.class_level, 'ไม่ระบุ')
+      ORDER BY class_level`,
+    [startStr, endStr]
+  )
+
+  const categoryRows = await queryRows(
+    `SELECT COALESCE(b.category, 'ไม่ระบุ') AS category,
+            COUNT(*) AS total
+       FROM library_loans l
+       LEFT JOIN library_books b ON b.id = l.book_id
+      WHERE l.borrowed_at >= ? AND l.borrowed_at < ?
+      GROUP BY COALESCE(b.category, 'ไม่ระบุ')
+      ORDER BY category`,
+    [startStr, endStr]
+  )
+
+  return {
+    period: {
+      year: targetYear,
+      month: safeMonth,
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
+    },
+    transactions: transactionRows.map((row) => ({
+      assumptionCode: row.assumption_code,
+      title: row.title,
+      studentName: row.student_name,
+      classLevel: row.class_level || "ไม่ระบุ",
+      category: row.category || "ไม่ระบุ",
+      borrowedAt: row.borrowed_at ? new Date(row.borrowed_at).toISOString() : null,
+      returnedAt: row.returned_at ? new Date(row.returned_at).toISOString() : null,
+    })),
+    classStats: classRows.map((row) => ({
+      classLevel: row.class_level || "ไม่ระบุ",
+      total: Number(row.total) || 0,
+    })),
+    categoryStats: categoryRows.map((row) => ({
+      category: row.category || "ไม่ระบุ",
+      total: Number(row.total) || 0,
+    })),
+  }
 }
 
 export async function deleteBooksByCodes(codes: string[]): Promise<void> {

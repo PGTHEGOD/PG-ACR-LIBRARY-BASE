@@ -20,8 +20,8 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileDown, PlusCircle, Trash2, Upload, Pencil, ScanLine, Printer, ShieldCheck } from "lucide-react"
-import { createXlsxBlob } from "@/lib/xlsx"
+import { BarChart3, FileDown, PlusCircle, Trash2, Upload, Pencil, ScanLine, Printer, ShieldCheck } from "lucide-react"
+import { createXlsxBlob, createXlsxBlobFromRows } from "@/lib/xlsx"
 import { generateRandomAssumptionCode } from "@/lib/utils/book-code"
 
 interface BookFormState extends Omit<BookInput, "publishYear" | "pages" | "price"> {
@@ -118,6 +118,26 @@ const printableFields: Array<{ label: string; detail?: string }> = [
   { label: "ราคา / วันที่ซื้อ / แหล่งที่มา" },
   { label: "ISBN / สำนักพิมพ์" },
 ]
+
+interface MonthlyReportPayload {
+  period: {
+    year: number
+    month: number
+    start: string
+    end: string
+  }
+  transactions: Array<{
+    assumptionCode: string
+    title: string
+    studentName: string
+    classLevel: string
+    category: string
+    borrowedAt: string | null
+    returnedAt: string | null
+  }>
+  classStats: Array<{ classLevel: string; total: number }>
+  categoryStats: Array<{ category: string; total: number }>
+}
 
 function extractSubjectLines(subject: string | undefined): string[] {
   const cleaned = subject
@@ -228,6 +248,14 @@ export default function BooksPage() {
     duplicates?: Array<{ code: string; total: number; titles: string[] }>
   } | null>(null)
   const [validatingAssumptionCodes, setValidatingAssumptionCodes] = useState(false)
+  const defaultMonthlyValue = useMemo(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  }, [])
+  const [monthlyReportDialogOpen, setMonthlyReportDialogOpen] = useState(false)
+  const [monthlyReportMonth, setMonthlyReportMonth] = useState(defaultMonthlyValue)
+  const [monthlyReportError, setMonthlyReportError] = useState("")
+  const [downloadingMonthlyReport, setDownloadingMonthlyReport] = useState(false)
   const resetAssumptionCodeValidation = useCallback(() => {
     setAssumptionCodeValidation({ status: "idle", message: "", code: undefined })
   }, [])
@@ -579,6 +607,37 @@ export default function BooksPage() {
       setValidatingAssumptionCodes(false)
     }
   }, [fetchAllBooks])
+
+  const handleDownloadMonthlyReport = useCallback(async () => {
+    if (!monthlyReportMonth) {
+      setMonthlyReportError("กรุณาเลือกเดือน")
+      return
+    }
+    setDownloadingMonthlyReport(true)
+    setMonthlyReportError("")
+    try {
+      const response = await fetch(`/api/library/reports/monthly?month=${monthlyReportMonth}`)
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload.error || "ไม่สามารถสร้างรายงานได้")
+      }
+      const rows = buildMonthlyReportRows(payload as MonthlyReportPayload)
+      const blob = createXlsxBlobFromRows(rows)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `library-monthly-report-${monthlyReportMonth}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setMonthlyReportDialogOpen(false)
+    } catch (error) {
+      setMonthlyReportError((error as Error).message || "ไม่สามารถสร้างรายงานได้")
+    } finally {
+      setDownloadingMonthlyReport(false)
+    }
+  }, [monthlyReportMonth])
 
   const buildPayload = (): BookInput => {
     const currentYear = new Date().getFullYear()
@@ -1028,6 +1087,17 @@ export default function BooksPage() {
               <Button variant="outline" className="h-10" onClick={handleExportExcel} disabled={exporting}>
                 <FileDown className="mr-2 h-4 w-4" />
                 {exporting ? "กำลังส่งออก..." : "ส่งออก Excel"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-10"
+                onClick={() => {
+                  setMonthlyReportMonth(defaultMonthlyValue)
+                  setMonthlyReportError("")
+                  setMonthlyReportDialogOpen(true)
+                }}
+              >
+                <BarChart3 className="mr-2 h-4 w-4" /> ส่งออกสถิติรายเดือน
               </Button>
               <Button variant="outline" className="h-10" onClick={handlePrintBlankForm}>
                 <Printer className="mr-2 h-4 w-4" /> พิมพ์แบบฟอร์มเพิ่มหนังสือ
@@ -1580,6 +1650,38 @@ export default function BooksPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={monthlyReportDialogOpen} onOpenChange={setMonthlyReportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ส่งออกสถิติการยืม-คืนรายเดือน</DialogTitle>
+            <DialogDescription>
+              ระบบจะสร้างไฟล์ Excel ที่รวมประวัติการยืม-คืนในเดือนที่เลือก พร้อมสรุปจำนวนเล่มตามระดับชั้นและหมวดหมู่
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {monthlyReportError && <p className="text-sm text-red-600">{monthlyReportError}</p>}
+            <div>
+              <Label htmlFor="monthly-report-month">เลือกเดือน</Label>
+              <Input
+                id="monthly-report-month"
+                type="month"
+                value={monthlyReportMonth}
+                max="9999-12"
+                onChange={(event) => setMonthlyReportMonth(event.target.value)}
+              />
+            </div>
+            <p className="text-sm text-slate-500">
+              แนะนำให้สร้างรายงานทุกสิ้นเดือน เพื่อเก็บข้อมูลการยืม-คืนและนำไปใช้ประกอบการประเมินห้องสมุด
+            </p>
+            <DialogFooter>
+              <Button onClick={() => void handleDownloadMonthlyReport()} disabled={downloadingMonthlyReport}>
+                {downloadingMonthlyReport ? "กำลังสร้างรายงาน..." : "ดาวน์โหลดรายงาน"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={Boolean(barcodePreviewBook)} onOpenChange={(open) => {
         if (!open) {
           setBarcodePreviewBook(null)
@@ -1639,4 +1741,69 @@ export default function BooksPage() {
       </Dialog>
     </div>
   )
+}
+function formatMonthLabel(year: number, month: number): string {
+  return `${month.toString().padStart(2, "0")}/${year}`
+}
+
+function formatDateTimeCell(value: string | null): string {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "-"
+  return date.toLocaleString("th-TH", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function buildMonthlyReportRows(payload: MonthlyReportPayload): Array<(string | number)[]> {
+  const now = new Date()
+  const rows: Array<(string | number)[]> = []
+  const monthLabel = formatMonthLabel(payload.period.year, payload.period.month)
+
+  rows.push([`รายงานสถิติการยืม-คืนประจำเดือน ${monthLabel}`])
+  rows.push([`สร้างเมื่อ`, now.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })])
+  rows.push([])
+
+  rows.push([`จำนวนเล่มที่ยืมตามระดับชั้น (${monthLabel})`])
+  rows.push(["ระดับชั้น", "จำนวนเล่ม"])
+  if (payload.classStats.length) {
+    payload.classStats.forEach((stat) => rows.push([stat.classLevel || "ไม่ระบุ", stat.total]))
+  } else {
+    rows.push(["ไม่มีข้อมูล", 0])
+  }
+  rows.push([])
+
+  rows.push([`จำนวนเล่มที่ยืมตามหมวดหมู่ (${monthLabel})`])
+  rows.push(["หมวดหมู่", "จำนวนเล่ม"])
+  if (payload.categoryStats.length) {
+    payload.categoryStats.forEach((stat) => rows.push([stat.category || "ไม่ระบุ", stat.total]))
+  } else {
+    rows.push(["ไม่มีข้อมูล", 0])
+  }
+  rows.push([])
+
+  rows.push([`ประวัติการยืม-คืน (${monthLabel})`])
+  rows.push(["วันที่ยืม", "วันที่คืน", "สถานะ", "รหัสหนังสือ", "ชื่อหนังสือ", "นักเรียน", "ระดับชั้น", "หมวดหมู่"])
+  if (payload.transactions.length) {
+    payload.transactions.forEach((transaction) => {
+      rows.push([
+        formatDateTimeCell(transaction.borrowedAt),
+        formatDateTimeCell(transaction.returnedAt),
+        transaction.returnedAt ? "คืนแล้ว" : "กำลังยืม",
+        transaction.assumptionCode,
+        transaction.title,
+        transaction.studentName,
+        transaction.classLevel || "ไม่ระบุ",
+        transaction.category || "ไม่ระบุ",
+      ])
+    })
+  } else {
+    rows.push(["-", "-", "-", "-", "ไม่มีข้อมูลในเดือนนี้", "-", "-", "-"])
+  }
+
+  return rows
 }

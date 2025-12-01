@@ -19,9 +19,9 @@ function columnLetter(index: number): string {
   return result
 }
 
-function buildWorksheetXml(headers: string[], rows: Array<(string | number)[]>): string {
-  const allRows = [headers, ...rows]
-  const rowsXml = allRows
+function buildWorksheetXml(rows: Array<(string | number)[]>): string {
+  const safeRows = rows.length ? rows : [[]]
+  const rowsXml = safeRows
     .map((row, rowIndex) => {
       const cells = row
         .map((value, cellIndex) => {
@@ -186,8 +186,13 @@ function createZip(entries: ZipFileEntry[]): Uint8Array {
   return result
 }
 
+function createWorkbook(entries: ZipFileEntry[]): Blob {
+  const zipBytes = createZip(entries)
+  return new Blob([zipBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+}
+
 export function createXlsxBlob(headers: string[], rows: Array<(string | number)[]>): Blob {
-  const worksheetXml = buildWorksheetXml(headers, rows)
+  const worksheetXml = buildWorksheetXml([headers, ...rows])
   const entries: ZipFileEntry[] = [
     { path: "[Content_Types].xml", data: buildContentTypes() },
     { path: "_rels/.rels", data: buildRootRels() },
@@ -195,6 +200,17 @@ export function createXlsxBlob(headers: string[], rows: Array<(string | number)[
     { path: "xl/_rels/workbook.xml.rels", data: buildWorkbookRels() },
     { path: "xl/worksheets/sheet1.xml", data: worksheetXml },
   ]
-  const zipBytes = createZip(entries)
-  return new Blob([zipBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+  return createWorkbook(entries)
+}
+
+export function createXlsxBlobFromRows(rows: Array<(string | number)[]>): Blob {
+  const worksheetXml = buildWorksheetXml(rows)
+  const entries: ZipFileEntry[] = [
+    { path: "[Content_Types].xml", data: buildContentTypes() },
+    { path: "_rels/.rels", data: buildRootRels() },
+    { path: "xl/workbook.xml", data: buildWorkbookXml() },
+    { path: "xl/_rels/workbook.xml.rels", data: buildWorkbookRels() },
+    { path: "xl/worksheets/sheet1.xml", data: worksheetXml },
+  ]
+  return createWorkbook(entries)
 }
