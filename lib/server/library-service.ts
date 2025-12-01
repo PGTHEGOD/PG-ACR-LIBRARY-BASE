@@ -451,8 +451,6 @@ export async function borrowBook(studentId: string, code: string) {
     await setBorrowLock(student.student_id, true)
   }
 
-  await adjustPoints(student.student_id, 5, `ยืมหนังสือ ${book.title}`)
-
   return { book: updated }
 }
 
@@ -501,6 +499,8 @@ export async function returnBook(studentId: string, code: string) {
   if (Number(activeAfter) === 0) {
     await setBorrowLock(trimmedStudent, false)
   }
+
+  await adjustPoints(trimmedStudent, 5, `คืนหนังสือ ${book.title}`)
 
   return { book: updated }
 }
