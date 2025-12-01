@@ -318,48 +318,6 @@ export default function BooksPage() {
     },
     [assumptionCodeMode, dialogMode, handleRandomizeAssumptionCode, resetAssumptionCodeValidation]
   )
-  const handleValidateAllAssumptionCodes = useCallback(async () => {
-    setValidatingAssumptionCodes(true)
-    setAssumptionCodeAudit({ type: "info", message: "กำลังตรวจสอบรหัสอัสสัมทั้งหมด..." })
-    try {
-      const allBooks = await fetchAllBooks()
-      if (!allBooks.length) {
-        setAssumptionCodeAudit({ type: "error", message: "ไม่มีข้อมูลหนังสือให้ตรวจสอบ" })
-        return
-      }
-      const duplicateMap = new Map<string, BookRecord[]>()
-      for (const book of allBooks) {
-        const code = book.assumptionCode?.trim()
-        if (!code) continue
-        const list = duplicateMap.get(code) ?? []
-        list.push(book)
-        duplicateMap.set(code, list)
-      }
-      const duplicates = Array.from(duplicateMap.entries())
-        .filter(([, list]) => list.length > 1)
-        .map(([code, list]) => ({
-          code,
-          total: list.length,
-          titles: list.map((item) => item.title).filter(Boolean).slice(0, 3),
-        }))
-      if (!duplicates.length) {
-        setAssumptionCodeAudit({ type: "success", message: "ไม่พบรหัสอัสสัมซ้ำในฐานข้อมูล" })
-      } else {
-        setAssumptionCodeAudit({
-          type: "error",
-          message: `พบรหัสอัสสัมซ้ำ ${duplicates.length} รหัส กรุณาตรวจสอบ`,
-          duplicates,
-        })
-      }
-    } catch (error) {
-      setAssumptionCodeAudit({
-        type: "error",
-        message: (error as Error).message || "ตรวจสอบรหัสอัสสัมทั้งหมดไม่สำเร็จ",
-      })
-    } finally {
-      setValidatingAssumptionCodes(false)
-    }
-  }, [fetchAllBooks])
   const barcodePreviewUrl = useMemo(() => {
     if (!barcodePreviewBook) return ""
     const code =
@@ -579,6 +537,48 @@ export default function BooksPage() {
     }
     return aggregated
   }, [])
+  const handleValidateAllAssumptionCodes = useCallback(async () => {
+    setValidatingAssumptionCodes(true)
+    setAssumptionCodeAudit({ type: "info", message: "กำลังตรวจสอบรหัสอัสสัมทั้งหมด..." })
+    try {
+      const allBooks = await fetchAllBooks()
+      if (!allBooks.length) {
+        setAssumptionCodeAudit({ type: "error", message: "ไม่มีข้อมูลหนังสือให้ตรวจสอบ" })
+        return
+      }
+      const duplicateMap = new Map<string, BookRecord[]>()
+      for (const book of allBooks) {
+        const code = book.assumptionCode?.trim()
+        if (!code) continue
+        const list = duplicateMap.get(code) ?? []
+        list.push(book)
+        duplicateMap.set(code, list)
+      }
+      const duplicates = Array.from(duplicateMap.entries())
+        .filter(([, list]) => list.length > 1)
+        .map(([code, list]) => ({
+          code,
+          total: list.length,
+          titles: list.map((item) => item.title).filter(Boolean).slice(0, 3),
+        }))
+      if (!duplicates.length) {
+        setAssumptionCodeAudit({ type: "success", message: "ไม่พบรหัสอัสสัมซ้ำในฐานข้อมูล" })
+      } else {
+        setAssumptionCodeAudit({
+          type: "error",
+          message: `พบรหัสอัสสัมซ้ำ ${duplicates.length} รหัส กรุณาตรวจสอบ`,
+          duplicates,
+        })
+      }
+    } catch (error) {
+      setAssumptionCodeAudit({
+        type: "error",
+        message: (error as Error).message || "ตรวจสอบรหัสอัสสัมทั้งหมดไม่สำเร็จ",
+      })
+    } finally {
+      setValidatingAssumptionCodes(false)
+    }
+  }, [fetchAllBooks])
 
   const buildPayload = (): BookInput => {
     const currentYear = new Date().getFullYear()
