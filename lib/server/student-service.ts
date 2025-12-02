@@ -73,7 +73,7 @@ export async function listStudents(options: ListStudentsOptions = {}): Promise<P
           'lastName', sub.last_name,
           'createdAt', DATE_FORMAT(sub.created_at, '%Y-%m-%dT%H:%i:%sZ'),
           'updatedAt', DATE_FORMAT(sub.updated_at, '%Y-%m-%dT%H:%i:%sZ')
-        ) ORDER BY sub.class_level, sub.room, sub.student_number, sub.first_name, sub.last_name
+        )
       ), JSON_ARRAY())
      FROM (
         SELECT s.*
@@ -190,10 +190,11 @@ export async function bulkUpsertStudents(rows: StudentImportRow[]): Promise<{ pr
 
 export async function listStudentCodes(): Promise<string[]> {
   return queryJson(
-    `SELECT COALESCE(JSON_ARRAYAGG(code ORDER BY code), JSON_ARRAY())
+    `SELECT COALESCE(JSON_ARRAYAGG(code), JSON_ARRAY())
      FROM (
        SELECT DISTINCT student_code AS code
        FROM students
+       ORDER BY code
      ) t`,
     []
   )
@@ -205,7 +206,7 @@ export async function listClassRooms(): Promise<Array<{ classLevel: string; room
         JSON_OBJECT(
           'classLevel', c.class_level,
           'room', c.room
-        ) ORDER BY c.class_level, c.room
+        )
       ), JSON_ARRAY())
      FROM (
        SELECT DISTINCT class_level, COALESCE(NULLIF(room, ''), NULL) AS room

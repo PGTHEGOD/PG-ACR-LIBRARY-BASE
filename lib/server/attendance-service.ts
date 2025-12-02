@@ -54,8 +54,9 @@ export async function listAttendance(options: AttendanceOptions = {}): Promise<A
   }
 
   const records = await queryJson<AttendanceRecord[]>(
-    `SELECT COALESCE(JSON_ARRAYAGG(
-        JSON_OBJECT(
+    `SELECT COALESCE(JSON_ARRAYAGG(entry.row), JSON_ARRAY())
+     FROM (
+        SELECT JSON_OBJECT(
           'id', a.id,
           'studentId', a.student_id,
           'studentCode', s.student_code,
@@ -68,12 +69,13 @@ export async function listAttendance(options: AttendanceOptions = {}): Promise<A
           'number', s.student_number,
           'firstName', s.first_name,
           'lastName', s.last_name
-        ) ORDER BY a.attendance_date DESC, a.attendance_time DESC
-      ), JSON_ARRAY())
-     FROM attendance_logs a
-     INNER JOIN students s ON s.id = a.student_id
-     WHERE a.attendance_date BETWEEN ? AND ?
-     ${searchClause}`,
+        ) AS row
+        FROM attendance_logs a
+        INNER JOIN students s ON s.id = a.student_id
+        WHERE a.attendance_date BETWEEN ? AND ?
+        ${searchClause}
+        ORDER BY a.attendance_date DESC, a.attendance_time DESC
+     ) entry`,
     [],
     params
   )
