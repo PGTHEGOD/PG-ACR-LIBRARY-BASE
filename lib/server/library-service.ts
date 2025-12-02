@@ -11,6 +11,21 @@ function formatDateForQuery(date: Date): string {
   return date.toISOString().slice(0, 19).replace("T", " ")
 }
 
+function getMonthBoundaries(year: number, month: number) {
+  const safeMonth = Math.max(1, Math.min(12, month))
+  const safeYear = Number.isFinite(year) ? year : new Date().getFullYear()
+  const start = new Date(Date.UTC(safeYear, safeMonth - 1, 1, 0, 0, 0))
+  const end = new Date(Date.UTC(safeYear, safeMonth, 1, 0, 0, 0))
+  return {
+    year: safeYear,
+    month: safeMonth,
+    start,
+    end,
+    startStr: formatDateForQuery(start),
+    endStr: formatDateForQuery(end),
+  }
+}
+
 function sanitizeBookInput(input: BookInput): BookInput {
   const currentYear = new Date().getFullYear()
   return {
@@ -381,12 +396,7 @@ export async function listBookCodes(): Promise<string[]> {
 }
 
 export async function getMonthlyLoanReport(year: number, month: number) {
-  const safeMonth = Math.max(1, Math.min(12, month))
-  const targetYear = Number.isFinite(year) ? year : new Date().getFullYear()
-  const startDate = new Date(Date.UTC(targetYear, safeMonth - 1, 1, 0, 0, 0))
-  const endDate = new Date(Date.UTC(targetYear, safeMonth, 1, 0, 0, 0))
-  const startStr = formatDateForQuery(startDate)
-  const endStr = formatDateForQuery(endDate)
+  const { year: safeYear, month: safeMonth, start, end, startStr, endStr } = getMonthBoundaries(year, month)
 
   const transactionRows = await queryRows(
     `SELECT l.assumption_code AS assumption_code,
@@ -429,10 +439,10 @@ export async function getMonthlyLoanReport(year: number, month: number) {
 
   return {
     period: {
-      year: targetYear,
+      year: safeYear,
       month: safeMonth,
-      start: startDate.toISOString(),
-      end: endDate.toISOString(),
+      start: start.toISOString(),
+      end: end.toISOString(),
     },
     transactions: transactionRows.map((row) => ({
       assumptionCode: row.assumption_code,
@@ -450,6 +460,78 @@ export async function getMonthlyLoanReport(year: number, month: number) {
     categoryStats: categoryRows.map((row) => ({
       category: row.category || "ไม่ระบุ",
       total: Number(row.total) || 0,
+    })),
+  }
+}
+
+export async function logBarcodeRewardScan(studentId: string) {
+  const trimmed = studentId.trim()
+  if (!trimmed) {
+    throw new Error("กรุณาระบุรหัสนักเรียน")
+  }
+  const student = await getStudentByCode(trimmed)
+  if (!student) {
+    throw new Error("ไม่พบนักเรียนในระบบ")
+  }
+  const now = new Date()
+  const { startStr } = getMonthBoundaries(now.getFullYear(), now.getMonth() + 1)
+  const [{ total = 0 } = {}] = await queryRows<{ total: number }>(
+    `SELECT COUNT(*) AS total
+       FROM library_barcode_rewards
+      WHERE student_id = ?
+        AND scanned_at >= ?`,
+    [trimmed, startStr]
+  )
+  await execute(`INSERT INTO library_barcode_rewards (student_id, scanned_at) VALUES (?, NOW())`, [trimmed])
+  await adjustPoints(trimmed, 5, "กิจกรรมตอบคำถามบาร์โค้ด")
+
+  return {
+    student,
+    recordedAt: now.toISOString(),
+    totalThisMonth: Number(total) + 1,
+    firstInMonth: Number(total) === 0,
+  }
+}
+
+export async function listBarcodeRewardScans(year?: number, month?: number) {
+  let clause = ""
+  const params: unknown[] = []
+  let period: { year: number; month: number; start: string; end: string } | null = null
+  if (year && month) {
+    const { year: safeYear, month: safeMonth, startStr, endStr, start, end } = getMonthBoundaries(year, month)
+    clause = "WHERE r.scanned_at >= ? AND r.scanned_at < ?"
+    params.push(startStr, endStr)
+    period = {
+      year: safeYear,
+      month: safeMonth,
+      start: start.toISOString(),
+      end: end.toISOString(),
+    }
+  }
+
+  const rows = await queryRows(
+    `SELECT r.id,
+            r.student_id,
+            r.scanned_at,
+            COALESCE(s.first_name, '') AS first_name,
+            COALESCE(s.last_name, '') AS last_name,
+            COALESCE(s.class_level, '') AS class_level
+       FROM library_barcode_rewards r
+       LEFT JOIN students s ON s.student_code = r.student_id
+       ${clause}
+       ORDER BY r.scanned_at DESC`,
+    params
+  )
+
+  return {
+    period,
+    entries: rows.map((row) => ({
+      id: row.id,
+      studentId: row.student_id,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      classLevel: row.class_level || "ไม่ระบุ",
+      scannedAt: row.scanned_at ? new Date(row.scanned_at).toISOString() : "",
     })),
   }
 }

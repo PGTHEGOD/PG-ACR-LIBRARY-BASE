@@ -169,6 +169,16 @@ async function ensureSchema(): Promise<void> {
           PRIMARY KEY (student_id)
         ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
       )
+
+      await serverConnection.query(
+        `CREATE TABLE IF NOT EXISTS ${database}.library_barcode_rewards (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          student_id VARCHAR(32) NOT NULL,
+          scanned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_rewards_student_month (student_id, scanned_at)
+        ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
+      )
     } finally {
       await serverConnection.end()
     }

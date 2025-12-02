@@ -410,6 +410,11 @@ const [missingBookCode, setMissingBookCode] = useState("")
                 จัดการข้อมูลนักเรียน
               </Button>
             </Link>
+            <Link href="/barcode-rewards">
+              <Button variant="link" className="text-blue-700">
+                กิจกรรมห้องสมุดเคลื่อนที่
+              </Button>
+            </Link>
           </div>
         </div>
       </header>
