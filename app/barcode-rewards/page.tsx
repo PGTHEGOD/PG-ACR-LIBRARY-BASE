@@ -38,6 +38,8 @@ interface RewardLogsResponse {
   entries: RewardLogEntry[]
 }
 
+const VALID_BARCODE = "100"
+
 const worksheetLinks = [
   {
     label: "ใบตอบคำถาม ป.1 - ป.3",
@@ -70,7 +72,6 @@ export default function BarcodeRewardsPage() {
   }, [])
   const [barcodeInput, setBarcodeInput] = useState("")
   const [studentCode, setStudentCode] = useState("")
-  const [pendingBarcode, setPendingBarcode] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitError, setSubmitError] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -86,12 +87,21 @@ export default function BarcodeRewardsPage() {
 
   const handleScanSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!barcodeInput.trim()) {
+    const trimmed = barcodeInput.trim()
+    if (!trimmed) {
       setStatusMessage(null)
       setSubmitError("กรุณาสแกนหรือกรอกรหัสบาร์โค้ด")
       return
     }
-    setPendingBarcode(barcodeInput.trim())
+    const isValid = trimmed === VALID_BARCODE
+    if (!isValid) {
+      setStatusMessage({
+        type: "repeat",
+        text: "รหัสบาร์โค้ดไม่ถูกต้อง กรุณาตรวจสอบ",
+      })
+      setBarcodeInput("")
+      return
+    }
     setBarcodeInput("")
     setStudentCode("")
     setSubmitError("")
@@ -109,7 +119,7 @@ export default function BarcodeRewardsPage() {
       const response = await fetch("/api/library/barcode-rewards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: studentCode.trim(), barcode: pendingBarcode }),
+        body: JSON.stringify({ studentId: studentCode.trim() }),
       })
       const data = (await response.json().catch(() => ({}))) as RewardApiResponse & { error?: string }
       if (!response.ok) {
@@ -126,7 +136,6 @@ export default function BarcodeRewardsPage() {
         timestamp: formatThaiDateTime(data.recordedAt),
       })
       setStudentCode("")
-      setPendingBarcode("")
     } catch (error) {
       setSubmitError((error as Error).message || "บันทึกไม่สำเร็จ")
     } finally {
@@ -231,35 +240,23 @@ export default function BarcodeRewardsPage() {
               </div>
             )}
 
-            <div className="grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
-              <form onSubmit={handleScanSubmit} className="space-y-4 rounded-2xl border border-slate-200 p-4">
-                <div>
-                  <Label htmlFor="barcode-input">สแกนบาร์โค้ดกิจกรรม</Label>
-                  <Input
-                    id="barcode-input"
-                    value={barcodeInput}
-                    onChange={(event) => setBarcodeInput(event.target.value)}
-                    placeholder="สแกนหรือพิมพ์รหัสบาร์โค้ด (สแกนเนอร์จะกด Enter อัตโนมัติ)"
-                    autoFocus
-                    className="h-12 text-lg"
-                  />
-                </div>
-                {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-                <Button type="submit" className="h-12 w-full text-base md:w-auto">
-                  ดำเนินการต่อ
-                </Button>
-              </form>
-
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-600">
-                <p className="font-semibold text-slate-800">แนวทางการปฏิบัติ</p>
-                <ol className="mt-3 space-y-2">
-                  <li>1. ติดโปสเตอร์บาร์โค้ดที่จุดกิจกรรม และให้เด็กสแกนทีละคน</li>
-                  <li>2. ระบบจะเปิดช่องให้กรอกรหัสนักเรียน (เจ้าหน้าที่เป็นผู้กรอก)</li>
-                  <li>3. เมื่อบันทึกเสร็จ สีเขียว = ทำครั้งแรกของเดือน, สีเหลือง = ทำซ้ำ</li>
-                  <li>4. สามารถดาวน์โหลดใบตอบคำถาม + รายงานกิจกรรมได้จากหัวข้อด้านล่าง</li>
-                </ol>
+            <form onSubmit={handleScanSubmit} className="space-y-4 rounded-2xl border border-slate-200 p-4">
+              <div>
+                <Label htmlFor="barcode-input">สแกนบาร์โค้ดกิจกรรม</Label>
+                <Input
+                  id="barcode-input"
+                  value={barcodeInput}
+                  onChange={(event) => setBarcodeInput(event.target.value)}
+                  placeholder="สแกนหรือพิมพ์รหัสบาร์โค้ด (สแกนเนอร์จะกด Enter อัตโนมัติ)"
+                  autoFocus
+                  className="h-12 text-lg"
+                />
               </div>
-            </div>
+              {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+              <Button type="submit" className="h-12 w-full text-base md:w-auto">
+                ดำเนินการต่อ
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
@@ -311,9 +308,7 @@ export default function BarcodeRewardsPage() {
             <DialogTitle className="flex items-center gap-2 text-xl text-blue-900">
               <ScanLine className="h-5 w-5" /> ขั้นตอนถัดไป
             </DialogTitle>
-            <DialogDescription className="text-slate-600">
-              บาร์โค้ดที่สแกน: <span className="font-mono">{pendingBarcode || "ไม่ระบุ"}</span>
-            </DialogDescription>
+            <DialogDescription className="text-slate-600">ยืนยันรหัสนักเรียนเพื่อบันทึกกิจกรรมและเพิ่มคะแนน</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-slate-600">
