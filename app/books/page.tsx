@@ -1472,18 +1472,11 @@ export default function BooksPage() {
                   <Label htmlFor="isbn">ISBN</Label>
                   <Input
                     id="isbn"
+                    type="number"
+                    inputMode="numeric"
                     value={form.isbn}
                     onChange={(event) => setForm((prev) => ({ ...prev, isbn: event.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="price">ราคา (บาท)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    inputMode="decimal"
-                    value={form.price}
-                    onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
+                    required
                   />
                 </div>
               </div>

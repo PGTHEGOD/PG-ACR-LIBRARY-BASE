@@ -85,6 +85,11 @@ export default function BarcodeRewardsPage() {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState("")
 
+  const handleConfirmRewardSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    void handleConfirmReward()
+  }
+
   const handleScanSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const trimmed = barcodeInput.trim()
@@ -310,7 +315,7 @@ export default function BarcodeRewardsPage() {
             </DialogTitle>
             <DialogDescription className="text-slate-600">ยืนยันรหัสนักเรียนเพื่อบันทึกกิจกรรมและเพิ่มคะแนน</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={handleConfirmRewardSubmit} className="space-y-4">
             <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-slate-600">
               <p className="font-semibold text-blue-900">1. ตรวจสอบตัวตน</p>
               <p>กรอกรหัสนักเรียนเพื่อให้ระบบเพิ่มคะแนน และบันทึกว่าร่วมกิจกรรมห้องสมุดเคลื่อนที่</p>
@@ -326,9 +331,9 @@ export default function BarcodeRewardsPage() {
               />
             </div>
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-             <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row">
               <Button
-                onClick={() => void handleConfirmReward()}
+                type="submit"
                 disabled={submitting}
                 className="flex-1 bg-blue-600 text-base text-white hover:bg-blue-700"
               >
@@ -336,7 +341,7 @@ export default function BarcodeRewardsPage() {
                 {submitting ? "กำลังบันทึก..." : "บันทึกและให้คะแนน +5"}
               </Button>
             </DialogFooter>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
