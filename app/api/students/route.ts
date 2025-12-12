@@ -19,10 +19,11 @@ export async function GET(request: NextRequest) {
     const limit = Number(searchParams.get("limit") || "50")
     const page = Number(searchParams.get("page") || "1")
     const classFilter = parseClassParam(searchParams.get("class"))
+    const leaderMonth = searchParams.get("leaderMonth") || undefined
 
     const [data, leaders] = await Promise.all([
       listStudents({ search, limit, page, classFilter }),
-      getScoreLeadersSummary(),
+      getScoreLeadersSummary(leaderMonth),
     ])
     return NextResponse.json({ ...data, leaders })
   } catch (error) {

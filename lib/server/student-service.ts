@@ -272,12 +272,17 @@ async function queryScoreLeaders(group: "primary" | "secondary", options?: { mon
   }))
 }
 
-export async function getScoreLeadersSummary() {
-  const now = new Date()
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+export async function getScoreLeadersSummary(monthKey?: string) {
+  const summaryMonthKey =
+    monthKey && /^\d{4}-\d{2}$/.test(monthKey)
+      ? monthKey
+      : (() => {
+          const now = new Date()
+          return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+        })()
   const [monthlyPrimary, monthlySecondary, overallPrimary, overallSecondary] = await Promise.all([
-    queryScoreLeaders("primary", { monthKey }),
-    queryScoreLeaders("secondary", { monthKey }),
+    queryScoreLeaders("primary", { monthKey: summaryMonthKey }),
+    queryScoreLeaders("secondary", { monthKey: summaryMonthKey }),
     queryScoreLeaders("primary"),
     queryScoreLeaders("secondary"),
   ])

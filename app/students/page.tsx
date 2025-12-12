@@ -51,6 +51,11 @@ export default function StudentsPage() {
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [leaders, setLeaders] = useState<ScoreLeaderSummary>(() => createEmptyLeaderSummary())
+  const defaultMonth = useMemo(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  }, [])
+  const [leaderMonth, setLeaderMonth] = useState(defaultMonth)
 
   const loadStudents = async () => {
     setLoading(true)
@@ -59,6 +64,7 @@ export default function StudentsPage() {
       const params = new URLSearchParams()
       if (search.trim()) params.set("search", search.trim())
       if (classFilter && classFilter !== "__all__") params.set("class", classFilter)
+      if (leaderMonth) params.set("leaderMonth", leaderMonth)
       const response = await fetch(`/api/students?${params.toString()}`)
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
@@ -88,7 +94,7 @@ export default function StudentsPage() {
 
   useEffect(() => {
     loadStudents()
-  }, [classFilter])
+  }, [classFilter, leaderMonth, search])
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -184,12 +190,31 @@ export default function StudentsPage() {
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6">
         <Card className="rounded-3xl border border-blue-100 shadow-sm">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-blue-900">อันดับคะแนน Library Points</CardTitle>
-            <p className="text-sm text-slate-500">Top 3 ของเดือนปัจจุบันและสถิติตลอดเวลา แยกตามระดับชั้น</p>
+          <CardHeader className="space-y-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle className="text-blue-900">อันดับคะแนน Library Points</CardTitle>
+                <p className="text-sm text-slate-500">
+                  เลือกเดือนเพื่อตรวจสอบ Top 3 ของระดับชั้น ป.1-ป.6 และ ม.1-ม.6
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 text-sm text-slate-600 md:text-right">
+                <label className="text-xs uppercase tracking-[0.25em] text-slate-400">เลือกเดือน</label>
+                <Input
+                  type="month"
+                  value={leaderMonth}
+                  onChange={(event) => setLeaderMonth(event.target.value)}
+                  className="md:w-52"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="grid gap-4 lg:grid-cols-2">
-            {renderLeaderPanel("เดือนนี้", "นับเฉพาะคะแนน Library Points ที่ได้รับในเดือนปัจจุบัน", leaders.monthly)}
+            {renderLeaderPanel(
+              "เดือนนี้",
+              "นับเฉพาะคะแนน Library Points ที่ได้รับในเดือนที่เลือก",
+              leaders.monthly
+            )}
             {renderLeaderPanel("สถิติตลอดเวลา", "คะแนนสะสมทั้งหมด (รวมทุกเดือนจนถึงปัจจุบัน)", leaders.overall)}
           </CardContent>
         </Card>
