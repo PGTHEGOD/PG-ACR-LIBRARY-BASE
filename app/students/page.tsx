@@ -11,6 +11,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { StudentRecord } from "@/lib/types"
 import StudentRegister from "@/components/student-register"
 
+interface ScoreLeaderEntry {
+  studentCode: string
+  firstName: string
+  lastName: string
+  classLevel: string
+  totalPoints: number
+}
+
+interface ScoreLeaderGroup {
+  primary: ScoreLeaderEntry[]
+  secondary: ScoreLeaderEntry[]
+}
+
+interface ScoreLeaderSummary {
+  monthly: ScoreLeaderGroup
+  overall: ScoreLeaderGroup
+}
+
+const createEmptyLeaderSummary = (): ScoreLeaderSummary => ({
+  monthly: { primary: [], secondary: [] },
+  overall: { primary: [], secondary: [] },
+})
+
 export default function StudentsPage() {
   const [students, setStudents] = useState<StudentRecord[]>([])
   const [search, setSearch] = useState("")
@@ -27,6 +50,7 @@ export default function StudentsPage() {
   const [importError, setImportError] = useState("")
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [leaders, setLeaders] = useState<ScoreLeaderSummary>(() => createEmptyLeaderSummary())
 
   const loadStudents = async () => {
     setLoading(true)
@@ -54,6 +78,7 @@ export default function StudentsPage() {
         return (a.number || "").localeCompare(b.number || "", "th", { numeric: true })
       })
       setStudents(sorted)
+      setLeaders(payload.leaders || createEmptyLeaderSummary())
     } catch (err) {
       setError((err as Error).message || "ไม่สามารถโหลดรายชื่อได้")
     } finally {
@@ -96,6 +121,43 @@ export default function StudentsPage() {
     )
   }, [students, search])
 
+  const renderLeaderGroup = (title: string, entries: ScoreLeaderEntry[]) => (
+    <div className="rounded-xl border border-white/70 bg-white/80 p-3">
+      <p className="text-xs font-semibold text-slate-500">{title}</p>
+      {entries.length ? (
+        <ol className="mt-2 space-y-2 text-sm">
+          {entries.map((entry, index) => (
+            <li key={entry.studentCode} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">{index + 1}.</span>
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {entry.firstName} {entry.lastName}
+                  </p>
+                  <p className="text-xs text-slate-500">{entry.classLevel}</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-blue-600">{entry.totalPoints.toLocaleString()} คะแนน</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-2 text-xs text-slate-400">ยังไม่มีข้อมูล</p>
+      )}
+    </div>
+  )
+
+  const renderLeaderPanel = (title: string, description: string, group: ScoreLeaderGroup) => (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+      <p className="text-sm font-semibold text-slate-800">{title}</p>
+      <p className="text-xs text-slate-500">{description}</p>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {renderLeaderGroup("ป.1 - ป.6", group.primary)}
+        {renderLeaderGroup("ม.1 - ม.6", group.secondary)}
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-slate-100 bg-white px-4 py-4">
@@ -121,6 +183,17 @@ export default function StudentsPage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6">
+        <Card className="rounded-3xl border border-blue-100 shadow-sm">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-blue-900">อันดับคะแนน Library Points</CardTitle>
+            <p className="text-sm text-slate-500">Top 3 ของเดือนปัจจุบันและสถิติตลอดเวลา แยกตามระดับชั้น</p>
+          </CardHeader>
+          <CardContent className="grid gap-4 lg:grid-cols-2">
+            {renderLeaderPanel("เดือนนี้", "นับเฉพาะคะแนน Library Points ที่ได้รับในเดือนปัจจุบัน", leaders.monthly)}
+            {renderLeaderPanel("สถิติตลอดเวลา", "คะแนนสะสมทั้งหมด (รวมทุกเดือนจนถึงปัจจุบัน)", leaders.overall)}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-blue-900">รายชื่อนักเรียน</CardTitle>
@@ -174,7 +247,9 @@ export default function StudentsPage() {
                         {student.classLevel}
                         {student.room ? `/${student.room}` : ""}
                       </TableCell>
-                      <TableCell>-</TableCell>
+                      <TableCell className="font-semibold text-blue-700">
+                        {(student.totalPoints ?? 0).toLocaleString()}
+                      </TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm" onClick={() => handleSelect(student)}>
                           จัดการ

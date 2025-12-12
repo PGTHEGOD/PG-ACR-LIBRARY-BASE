@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { listStudents } from "@/lib/server/student-service"
+import { getScoreLeadersSummary, listStudents } from "@/lib/server/student-service"
 
 export const runtime = "nodejs"
 
@@ -20,8 +20,11 @@ export async function GET(request: NextRequest) {
     const page = Number(searchParams.get("page") || "1")
     const classFilter = parseClassParam(searchParams.get("class"))
 
-    const data = await listStudents({ search, limit, page, classFilter })
-    return NextResponse.json(data)
+    const [data, leaders] = await Promise.all([
+      listStudents({ search, limit, page, classFilter }),
+      getScoreLeadersSummary(),
+    ])
+    return NextResponse.json({ ...data, leaders })
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }

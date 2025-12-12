@@ -1,6 +1,6 @@
 import "server-only"
 
-import { escapeValue, execute, queryJson } from "@/lib/db"
+import { escapeValue, execute, queryJson, queryRows } from "@/lib/db"
 import type { PaginatedStudents, StudentImportRow, StudentRecord } from "@/lib/types"
 
 interface ListStudentsOptions {
@@ -71,13 +71,19 @@ export async function listStudents(options: ListStudentsOptions = {}): Promise<P
           'title', sub.title,
           'firstName', sub.first_name,
           'lastName', sub.last_name,
+          'totalPoints', COALESCE(sub.total_points, 0),
           'createdAt', DATE_FORMAT(sub.created_at, '%Y-%m-%dT%H:%i:%sZ'),
           'updatedAt', DATE_FORMAT(sub.updated_at, '%Y-%m-%dT%H:%i:%sZ')
         )
       ), JSON_ARRAY())
      FROM (
-        SELECT s.*
+        SELECT s.*, COALESCE(points.total_points, 0) AS total_points
         FROM students s
+        LEFT JOIN (
+          SELECT student_id, SUM(change_value) AS total_points
+          FROM library_scores
+          GROUP BY student_id
+        ) points ON points.student_id = s.student_code
         ${clause}
         ORDER BY s.class_level, s.room, s.student_number, s.first_name, s.last_name
         LIMIT ?
@@ -215,6 +221,76 @@ export async function listClassRooms(): Promise<Array<{ classLevel: string; room
      ) c`,
     []
   )
+}
+
+interface ScoreLeaderRow {
+  student_code: string
+  first_name: string
+  last_name: string
+  class_level: string
+  total_points: number
+}
+
+interface ScoreLeader {
+  studentCode: string
+  firstName: string
+  lastName: string
+  classLevel: string
+  totalPoints: number
+}
+
+async function queryScoreLeaders(group: "primary" | "secondary", options?: { monthKey?: string }): Promise<ScoreLeader[]> {
+  const groupCondition = group === "primary" ? "s.class_level LIKE 'ป.%'" : "s.class_level LIKE 'ม.%'"
+  const params: unknown[] = []
+  let dateClause = ""
+  if (options?.monthKey) {
+    dateClause = "AND DATE_FORMAT(ls.created_at, '%Y-%m') = ?"
+    params.push(options.monthKey)
+  }
+  const rows = await queryRows<ScoreLeaderRow>(
+    `SELECT s.student_code,
+            s.first_name,
+            s.last_name,
+            s.class_level,
+            SUM(ls.change_value) AS total_points
+       FROM library_scores ls
+       INNER JOIN students s ON s.student_code = ls.student_id
+      WHERE ${groupCondition}
+        ${dateClause}
+      GROUP BY s.student_code, s.first_name, s.last_name, s.class_level
+      HAVING total_points > 0
+      ORDER BY total_points DESC, s.class_level, s.first_name, s.last_name
+      LIMIT 3`,
+    params
+  )
+  return rows.map((row) => ({
+    studentCode: row.student_code,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    classLevel: row.class_level,
+    totalPoints: Number(row.total_points) || 0,
+  }))
+}
+
+export async function getScoreLeadersSummary() {
+  const now = new Date()
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const [monthlyPrimary, monthlySecondary, overallPrimary, overallSecondary] = await Promise.all([
+    queryScoreLeaders("primary", { monthKey }),
+    queryScoreLeaders("secondary", { monthKey }),
+    queryScoreLeaders("primary"),
+    queryScoreLeaders("secondary"),
+  ])
+  return {
+    monthly: {
+      primary: monthlyPrimary,
+      secondary: monthlySecondary,
+    },
+    overall: {
+      primary: overallPrimary,
+      secondary: overallSecondary,
+    },
+  }
 }
 
 export async function deleteStudentsByCodes(codes: string[]): Promise<void> {

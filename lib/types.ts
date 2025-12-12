@@ -7,6 +7,7 @@ export interface StudentRecord {
   title: string | null
   firstName: string
   lastName: string
+  totalPoints?: number
   createdAt: string
   updatedAt: string
 }
