@@ -479,6 +479,7 @@ export default function BooksPage() {
             <p className="text-xs text-slate-400">บาร์โค้ด: {book.barcode}</p>
           </TableCell>
           <TableCell className="text-sm text-slate-900">{book.category}</TableCell>
+       
           <TableCell>
             <Badge variant={book.status === "available" ? "outline" : "default"}>
               {book.status === "available" ? "พร้อมยืม" : "กำลังยืม"}
@@ -1245,7 +1246,7 @@ export default function BooksPage() {
                           value={assumptionCodeMode}
                           onValueChange={(value) => void handleAssumptionCodeModeChange(value as "manual" | "auto")}
                         >
-                          <SelectTrigger className="h-8 w-32 px-2 text-xs" disabled={dialogMode === "edit"}>
+                          <SelectTrigger className="h-8 w-32 px-2 text-xs">
                             <SelectValue placeholder="เลือกโหมด" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1483,12 +1484,19 @@ export default function BooksPage() {
 
               
 
-              <div className="grid gap-4 md:grid-cols-2">
-                
-                
-              </div>
               <div className="grid gap-4 md:grid-cols-3">
-                
+                <div>
+                  <Label htmlFor="price">ราคา (บาท)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    inputMode="decimal"
+                    value={form.price}
+                    onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
                 <div>
                   <Label htmlFor="purchaseDate">วันที่ซื้อ</Label>
                   <Input
