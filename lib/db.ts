@@ -179,12 +179,75 @@ async function ensureSchema(): Promise<void> {
           KEY idx_rewards_student_month (student_id, scanned_at)
         ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
       )
+
+      await serverConnection.query(
+        `CREATE TABLE IF NOT EXISTS ${database}.library_print_sessions (
+          id CHAR(36) NOT NULL,
+          created_at DATETIME NOT NULL,
+          expires_at DATETIME NOT NULL,
+          used TINYINT(1) NOT NULL DEFAULT 0,
+          offer LONGTEXT NULL,
+          answer LONGTEXT NULL,
+          PRIMARY KEY (id),
+          KEY idx_print_sessions_expires (expires_at),
+          KEY idx_print_sessions_used (used)
+        ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
+      )
+
+      await serverConnection.query(
+        `CREATE TABLE IF NOT EXISTS ${database}.library_print_candidates (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          session_id CHAR(36) NOT NULL,
+          role ENUM('host','guest') NOT NULL,
+          candidate LONGTEXT NOT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_print_candidates_session_role (session_id, role),
+          CONSTRAINT fk_print_candidates_session FOREIGN KEY (session_id)
+            REFERENCES ${database}.library_print_sessions(id)
+            ON DELETE CASCADE
+        ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
+      )
+
+      await serverConnection.query(
+        `CREATE TABLE IF NOT EXISTS ${database}.library_print_files (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          session_id CHAR(36) NOT NULL,
+          file_name VARCHAR(512) NOT NULL,
+          file_type VARCHAR(128) NOT NULL,
+          file_size BIGINT UNSIGNED NOT NULL,
+          file_data LONGBLOB NOT NULL,
+          uploaded_at DATETIME NOT NULL,
+          downloaded_at DATETIME NULL,
+          PRIMARY KEY (id),
+          KEY idx_print_files_session_uploaded (session_id, uploaded_at),
+          CONSTRAINT fk_print_files_session FOREIGN KEY (session_id)
+            REFERENCES ${database}.library_print_sessions(id)
+            ON DELETE CASCADE
+        ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
+      )
+
+      await serverConnection.query(`ALTER TABLE ${database}.library_print_files DROP PRIMARY KEY`).catch(() => {})
+
+      await serverConnection
+        .query(
+          `ALTER TABLE ${database}.library_print_files ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST`
+        )
+        .catch(() => {})
+
+      await serverConnection
+        .query(`ALTER TABLE ${database}.library_print_files ADD KEY idx_print_files_session (session_id)`)
+        .catch(() => {})
     } finally {
       await serverConnection.end()
     }
   })()
 
   return schemaReady
+}
+
+function normalizeParams(params: unknown[] = []) {
+  return params.map((value) => (value === undefined ? null : value))
 }
 
 function extractFirstColumn(row: mysql.RowDataPacket): unknown {
@@ -194,7 +257,7 @@ function extractFirstColumn(row: mysql.RowDataPacket): unknown {
 
 export async function queryJson<T>(sql: string, defaultValue: T, params: unknown[] = []): Promise<T> {
   await ensureSchema()
-  const [rows] = await pool.query<mysql.RowDataPacket[]>(sql, params)
+  const [rows] = await pool.query<mysql.RowDataPacket[]>(sql, normalizeParams(params))
   if (!rows.length) return defaultValue
   const raw = extractFirstColumn(rows[0])
   if (raw === null || raw === undefined || raw === "") {
@@ -211,18 +274,18 @@ export async function queryJson<T>(sql: string, defaultValue: T, params: unknown
 
 export async function execute(sql: string, params: unknown[] = []): Promise<void> {
   await ensureSchema()
-  await pool.query(sql, params)
+  await pool.query(sql, normalizeParams(params))
 }
 
 export async function queryRows<T = mysql.RowDataPacket>(sql: string, params: unknown[] = []): Promise<T[]> {
   await ensureSchema()
-  const [rows] = await pool.query<T[]>(sql, params)
+  const [rows] = await pool.query<T[]>(sql, normalizeParams(params))
   return rows
 }
 
 export async function executeAndGet(sql: string, params: unknown[] = []) {
   await ensureSchema()
-  const [result] = await pool.execute<mysql.ResultSetHeader>(sql, params)
+  const [result] = await pool.execute<mysql.ResultSetHeader>(sql, normalizeParams(params))
   return result
 }
 
