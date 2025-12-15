@@ -158,6 +158,14 @@ export async function markFileDownloaded(sessionId: string, fileId: string) {
   ])
 }
 
+export async function getSessionFilesWithData(sessionId: string): Promise<FileDataRow[]> {
+  const rows = await queryRows<FileDataRow>(
+    "SELECT id, session_id, file_name, file_type, file_size, file_data, uploaded_at, downloaded_at FROM library_print_files WHERE session_id = ? ORDER BY uploaded_at ASC, id ASC",
+    [sessionId],
+  )
+  return rows
+}
+
 export async function consumePrintSession(id: string) {
   await cleanupExpiredSessions()
   const result = await executeAndGet("DELETE FROM library_print_sessions WHERE id = ?", [id])

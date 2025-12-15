@@ -37,7 +37,7 @@ export default function LibraryPrintJoinPage({ params }: PageProps) {
   const [checking, setChecking] = useState(true)
   const [sessionTerminated, setSessionTerminated] = useState(false)
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [statusMessage, setStatusMessage] = useState("เลือกไฟล์ที่ต้องการพิมพ์")
@@ -122,13 +122,9 @@ export default function LibraryPrintJoinPage({ params }: PageProps) {
     return () => clearInterval(interval)
   }, [fetchSession, effectiveExpired, sessionInfo?.id])
 
-  const handleSendFile = async () => {
-    if (!selectedFile) {
+  const handleSendFiles = async () => {
+    if (!selectedFiles.length) {
       setSessionError("กรุณาเลือกไฟล์ก่อน")
-      return
-    }
-    if (selectedFile.size > MAX_UPLOAD_BYTES) {
-      setSessionError("ไฟล์ใหญ่เกินกำหนด (สูงสุด 25 MB)")
       return
     }
     const snapshot = await fetchSession(true)
@@ -138,56 +134,73 @@ export default function LibraryPrintJoinPage({ params }: PageProps) {
       return
     }
 
-    const formData = new FormData()
-    formData.append("file", selectedFile)
+    const totalBytes = selectedFiles.reduce((sum, file) => sum + file.size, 0)
+    if (!totalBytes) {
+      setSessionError("ไฟล์ต้องไม่ว่างเปล่า")
+      return
+    }
 
     cleanupUpload()
     setUploading(true)
     setCompleted(false)
     setProgress(0)
-    setStatusMessage(`กำลังอัปโหลดไฟล์ ${selectedFile.name}...`)
     setSessionError("")
 
-    const xhr = new XMLHttpRequest()
-    xhrRef.current = xhr
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percentage = (event.loaded / event.total) * 100
-        setProgress(Math.min(100, percentage))
+    let uploadedBytes = 0
+    try {
+      for (const file of selectedFiles) {
+        if (file.size > MAX_UPLOAD_BYTES) {
+          throw new Error(`ไฟล์ ${file.name} ใหญ่เกินกำหนด (สูงสุด 25 MB ต่อไฟล์)`)
+        }
+        setStatusMessage(`กำลังอัปโหลด ${file.name}`)
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhrRef.current = xhr
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percentage = ((uploadedBytes + event.loaded) / totalBytes) * 100
+              setProgress(Math.min(100, percentage))
+            }
+          }
+          xhr.onreadystatechange = () => {
+            if (xhr.readyState !== XMLHttpRequest.DONE) return
+            let payload: Record<string, unknown> = {}
+            try {
+              payload = JSON.parse(xhr.responseText || "{}")
+            } catch {
+              payload = {}
+            }
+            if (xhr.status >= 200 && xhr.status < 300) {
+              uploadedBytes += file.size
+              resolve()
+            } else {
+              reject(new Error((payload.error as string) || "ส่งไฟล์ไม่สำเร็จ"))
+            }
+          }
+          xhr.onerror = () => {
+            reject(new Error("การอัปโหลดล้มเหลว กรุณาลองใหม่"))
+          }
+          const formData = new FormData()
+          formData.append("file", file)
+          xhr.open("POST", `/api/print-sessions/${sessionId}/upload`)
+          xhr.send(formData)
+        })
       }
-    }
-    xhr.onreadystatechange = () => {
-      if (xhr.readyState !== XMLHttpRequest.DONE) return
-      setUploading(false)
-      let payload: Record<string, unknown> = {}
-      try {
-        payload = JSON.parse(xhr.responseText || "{}")
-      } catch {
-        payload = {}
-      }
-      if (xhr.status >= 200 && xhr.status < 300) {
-        setProgress(100)
-        setCompleted(true)
-        setStatusMessage("ส่งไฟล์เรียบร้อย! คุณสามารถเลือกไฟล์อื่นเพื่อส่งต่อได้")
-        setSelectedFile(null)
-        fetchSession(false)
-      } else {
-        setProgress(0)
-        setSessionError((payload.error as string) || "ส่งไฟล์ไม่สำเร็จ")
-      }
-    }
-    xhr.onerror = () => {
-      setUploading(false)
+      setProgress(100)
+      setCompleted(true)
+      setStatusMessage("ส่งไฟล์เรียบร้อย! คุณสามารถเลือกไฟล์อื่นและกดส่งอีกครั้งได้")
+      setSelectedFiles([])
+      fetchSession(false)
+    } catch (error) {
+      setSessionError((error as Error).message || "ส่งไฟล์ไม่สำเร็จ")
       setProgress(0)
-      setSessionError("การอัปโหลดล้มเหลว กรุณาลองใหม่")
+    } finally {
+      setUploading(false)
     }
-
-    xhr.open("POST", `/api/print-sessions/${sessionId}/upload`)
-    xhr.send(formData)
   }
 
   const files = sessionInfo?.files ?? []
-  const disabled = uploading || effectiveExpired || !selectedFile || !sessionInfo
+  const disabled = uploading || effectiveExpired || !selectedFiles.length || !sessionInfo
   const footer = (
     <p className="text-center text-xs text-slate-400">
       © {new Date().getFullYear()} Assumption College Rayong Library · Dev. by{" "}
@@ -299,7 +312,7 @@ export default function LibraryPrintJoinPage({ params }: PageProps) {
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-slate-900">เลือกไฟล์เพื่อส่ง</CardTitle>
             <CardDescription className="text-slate-500">
-              รองรับไฟล์ PDF / DOC / DOCX / รูปภาพและไฟล์ทั่วไป ขนาดไม่เกิน 25 MB
+              รองรับไฟล์ PDF / DOC / DOCX / รูปภาพและไฟล์ทั่วไป ขนาดไม่เกิน 25 MB พร้อมรองรับการเลือกหลายไฟล์พร้อมกัน
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -308,9 +321,11 @@ export default function LibraryPrintJoinPage({ params }: PageProps) {
               <Input
                 id="file"
                 type="file"
+                multiple
                 accept=".pdf,.doc,.docx,image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={(event) => {
-                  setSelectedFile(event.target.files?.[0] || null)
+                  const files = Array.from(event.target.files || [])
+                  setSelectedFiles(files)
                   setCompleted(false)
                   setProgress(0)
                   setStatusMessage("เลือกไฟล์ที่ต้องการพิมพ์")
@@ -319,10 +334,17 @@ export default function LibraryPrintJoinPage({ params }: PageProps) {
                 disabled={uploading || sessionExpired}
               />
             </div>
-            {selectedFile && (
+            <p className="text-xs text-slate-500">กด Ctrl/Shift หรือแตะหลายรายการเพื่อเลือกไฟล์พร้อมกัน</p>
+            {selectedFiles.length > 0 && (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                <p className="font-medium text-slate-900">{selectedFile.name}</p>
-                <p className="text-slate-500">{formatBytes(selectedFile.size)}</p>
+                <p className="font-medium text-slate-900">ไฟล์ที่เลือก</p>
+                <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                  {selectedFiles.map((file) => (
+                    <li key={`${file.name}-${file.size}`}>
+                      • {file.name} — {formatBytes(file.size)}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
@@ -347,7 +369,7 @@ export default function LibraryPrintJoinPage({ params }: PageProps) {
               </div>
             )}
 
-            <Button className="w-full" disabled={disabled} onClick={handleSendFile}>
+            <Button className="w-full" disabled={disabled} onClick={handleSendFiles}>
               {uploading ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />

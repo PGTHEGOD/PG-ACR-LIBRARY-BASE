@@ -40,6 +40,7 @@ export default function LibraryPrintHostPage() {
   const fileUrlsRef = useRef<Record<string, string>>({})
   const [fileStatus, setFileStatus] = useState<Record<string, FileStatus>>({})
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
+  const [downloadingZip, setDownloadingZip] = useState(false)
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [origin, setOrigin] = useState("")
@@ -194,7 +195,7 @@ export default function LibraryPrintHostPage() {
     const count = session.files?.length ?? 0
     if (count === 0) return "แสดง QR ให้ผู้ใช้สแกนและอัปโหลดไฟล์"
     return `ได้รับไฟล์แล้ว ${count} ไฟล์ เลือกเพื่อเปิดพิมพ์`
-  }, [session])
+  }, [session?.id, session?.files?.length])
 
   const footer = (
     <p className="text-center text-xs text-slate-400">
@@ -236,6 +237,33 @@ export default function LibraryPrintHostPage() {
     },
     [session?.id],
   )
+
+  const handleDownloadZip = useCallback(async () => {
+    if (!session?.id || !(session.files?.length ?? 0)) return
+    setDownloadingZip(true)
+    try {
+      const response = await fetch(`/api/print-sessions/${session.id}/download-zip`, {
+        cache: "no-store",
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload.error || "ไม่สามารถดาวน์โหลดไฟล์ทั้งหมดได้")
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `library-print-${session.id}.zip`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setSessionError((error as Error).message || "ไม่สามารถดาวน์โหลดไฟล์ทั้งหมดได้")
+    } finally {
+      setDownloadingZip(false)
+    }
+  }, [session])
 
   const handleFinishSession = useCallback(async () => {
     const sessionToClose = activeSessionIdRef.current
@@ -546,6 +574,15 @@ export default function LibraryPrintHostPage() {
                   >
                     <FileDown className="mr-2 size-4" />
                     ดาวน์โหลดไฟล์
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="flex-1 min-w-[160px]"
+                    disabled={!files.length || downloadingZip}
+                    onClick={handleDownloadZip}
+                  >
+                    <FileDown className="mr-2 size-4" />
+                    {downloadingZip ? "ดาวน์โหลด ZIP..." : "ดาวน์โหลดทั้งหมด (ZIP)"}
                   </Button>
                 </div>
                 {!selectedFile && <p className="text-xs text-slate-500">ยังไม่มีไฟล์ที่เลือก</p>}
