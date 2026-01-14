@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
-import { ScanLine, BookOpenCheck, History, Sparkles } from "lucide-react"
+import { ScanLine, BookOpenCheck, History, Sparkles, Nfc, Settings2, ShieldCheck } from "lucide-react"
 import StudentRegister from "@/components/student-register"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { generateRandomAssumptionCode } from "@/lib/utils/book-code"
+import { useRfidReader } from "@/hooks/use-rfid-reader"
+import { useToast } from "@/hooks/use-toast"
 
 interface BorrowResponse {
   book: BookRecord | null
@@ -36,6 +38,10 @@ interface QuickAddFormState {
   publishYear: string
   pages: string
   price: string
+  volumeNumber: string
+  language: string
+  printNumber: string
+  coverUrl: string
 }
 
 function buildQuickAddDefaults(code: string): QuickAddFormState {
@@ -55,6 +61,10 @@ function buildQuickAddDefaults(code: string): QuickAddFormState {
     publishYear: `${new Date().getFullYear()}`,
     pages: "200",
     price: "0",
+    volumeNumber: "",
+    language: "ไทย",
+    printNumber: "1",
+    coverUrl: "",
   }
 }
 
@@ -74,17 +84,31 @@ export default function Home() {
   const bookInputRef = useRef<HTMLInputElement | null>(null)
   const [bookCode, setBookCode] = useState("")
   const [activeBookCode, setActiveBookCode] = useState("")
-const [bookData, setBookData] = useState<BookRecord | null>(null)
-const [bookMessage, setBookMessage] = useState("")
-const [bookLoading, setBookLoading] = useState(false)
-const [bookDialogOpen, setBookDialogOpen] = useState(false)
-const [missingBookCode, setMissingBookCode] = useState("")
+  const [bookData, setBookData] = useState<BookRecord | null>(null)
+  const [bookMessage, setBookMessage] = useState("")
+  const [bookLoading, setBookLoading] = useState(false)
+  const [bookDialogOpen, setBookDialogOpen] = useState(false)
+  const [missingBookCode, setMissingBookCode] = useState("")
   const [quickAddInvite, setQuickAddInvite] = useState(false)
   const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   const [pointInput, setPointInput] = useState("5")
   const [pointNote, setPointNote] = useState("เพิ่มคะแนนความมีระเบียบ")
   const [pointSubmitting, setPointSubmitting] = useState(false)
+
+  const {
+    isConnected,
+    isScanning,
+    lastStudentId,
+    connect,
+    startScan,
+    stopScan,
+    setLastStudentId,
+    error: rfidError
+  } = useRfidReader(true)
+
+  const { toast } = useToast()
+  const [isScanningModalOpen, setIsScanningModalOpen] = useState(false)
 
   useEffect(() => {
     const verifyAccess = async () => {
@@ -100,6 +124,20 @@ const [missingBookCode, setMissingBookCode] = useState("")
     }
     verifyAccess()
   }, [])
+
+  // Handle RFID scan
+  useEffect(() => {
+    if (lastStudentId && !studentLoading) {
+      setStudentId(lastStudentId)
+      fetchStudent(lastStudentId)
+      setLastStudentId(null)
+      setIsScanningModalOpen(false)
+      toast({
+        title: "สแกนสำเร็จ",
+        description: `รหัสนักเรียน: ${lastStudentId}`,
+      })
+    }
+  }, [lastStudentId, studentLoading, setLastStudentId, toast])
 
   useEffect(() => {
     if (!bookDialogOpen) {
@@ -282,8 +320,8 @@ const [missingBookCode, setMissingBookCode] = useState("")
     setBookMessage("เพิ่มหนังสือใหม่แล้ว สามารถดำเนินการยืมได้ทันที")
     setQuickAddInvite(false)
     setQuickAddOpen(false)
-      setBookCode("")
-      bookInputRef.current?.focus()
+    setBookCode("")
+    bookInputRef.current?.focus()
     setActiveBookCode(record.assumptionCode)
     setMissingBookCode("")
   }
@@ -437,19 +475,52 @@ const [missingBookCode, setMissingBookCode] = useState("")
                   รหัสนักเรียน
                 </label>
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Input
-                    id="student-id-input"
-                    placeholder="เช่น 17685"
-                    value={studentId}
-                    onChange={(event) => setStudentId(event.target.value)}
-                    className="h-14 flex-1 text-lg"
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      id="student-id-input"
+                      placeholder="เช่น 17685"
+                      value={studentId}
+                      onChange={(event) => setStudentId(event.target.value)}
+                      className="h-14 w-full text-lg pr-12"
+                    />
+                    {isConnected && (
+                      <div className={`absolute right-4 top-1/2 -translate-y-1/2 transition-colors ${isScanning ? 'text-blue-500 animate-pulse' : 'text-emerald-500'}`} title={isScanning ? "Scanning..." : "RFID Online"}>
+                        {isScanning ? <ScanLine className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+                      </div>
+                    )}
+                  </div>
                   <Button type="submit" className="h-14 px-8 text-base" disabled={studentLoading}>
                     {studentLoading ? "กำลังค้นหา..." : "แสดงข้อมูล"}
                   </Button>
+                  {isConnected ? (
+                    <Button
+                      type="button"
+                      variant={isScanning ? "secondary" : "outline"}
+                      className={`h-14 gap-2 border-slate-200 transition-all ${isScanning ? 'bg-blue-50 text-blue-600 border-blue-200' : ''}`}
+                      onClick={() => {
+                        setIsScanningModalOpen(true)
+                        startScan()
+                      }}
+                    >
+                      <Nfc className={`h-5 w-5 ${isScanning ? 'animate-pulse' : ''}`} />
+                      {isScanning ? "กำลังรอสแกน..." : "เริ่มสแกนบัตร"}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-14 gap-2 border-slate-200"
+                      onClick={connect}
+                    >
+                      <Nfc className="h-5 w-5" />
+                      เชื่อมต่อ RFID
+                    </Button>
+                  )}
                 </div>
                 {studentError && <p className="text-sm text-red-600">{studentError}</p>}
-                <p className="text-xs text-slate-500">
+                {rfidError && <p className="text-xs text-amber-600">RFID: {rfidError}</p>}
+                <p className="text-xs text-slate-500 flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-slate-200" />
                   ระบบจะใช้รหัสนักเรียนนี้กับหน้าต่างสแกนหนังสือและการบันทึกคะแนนทั้งหมด
                 </p>
               </form>
@@ -528,7 +599,7 @@ const [missingBookCode, setMissingBookCode] = useState("")
 
         {studentProfile ? (
           <>
-            
+
             <section className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
               <Card className="rounded-3xl border border-slate-100 shadow-sm">
                 <CardHeader>
@@ -569,10 +640,10 @@ const [missingBookCode, setMissingBookCode] = useState("")
                             <div>
                               <p className="font-medium text-slate-900">{entry.note}</p>
                               <p className="text-xs text-slate-500">
-                              {new Date(entry.createdAt).toLocaleString("th-TH", {
-                                    timeZone: "UTC"
-                                  
-                                  })}
+                                {new Date(entry.createdAt).toLocaleString("th-TH", {
+                                  timeZone: "UTC"
+
+                                })}
                               </p>
                             </div>
 
@@ -614,15 +685,15 @@ const [missingBookCode, setMissingBookCode] = useState("")
                           {recentLoans.map((loan) => (
                             <TableRow key={loan.id}>
                               <TableCell className="font-medium text-slate-900">{loan.title}</TableCell>
-                        <TableCell>
-                          {new Date(loan.borrowedAt).toLocaleDateString("th-TH", { timeZone: "UTC" })}
-                        </TableCell>
-                        <TableCell>
-                        {loan.returnedAt
-                            ? new Date(loan.returnedAt).toLocaleDateString("th-TH", { timeZone: "UTC" })
-                            : "-"}
+                              <TableCell>
+                                {new Date(loan.borrowedAt).toLocaleDateString("th-TH", { timeZone: "UTC" })}
+                              </TableCell>
+                              <TableCell>
+                                {loan.returnedAt
+                                  ? new Date(loan.returnedAt).toLocaleDateString("th-TH", { timeZone: "UTC" })
+                                  : "-"}
 
-                        </TableCell>
+                              </TableCell>
                               <TableCell>
                                 <Badge variant={loan.status === "borrowed" ? "default" : "outline"}>
                                   {loan.status === "borrowed" ? "กำลังยืม" : "คืนแล้ว"}
@@ -737,11 +808,10 @@ const [missingBookCode, setMissingBookCode] = useState("")
                       type="button"
                       onClick={() => handleBorrowOrReturn("borrow")}
                       disabled={bookLoading || !studentProfile || bookData.status === "borrowed" || maxBorrowReached}
-                      className={`h-12 w-full justify-center gap-2 ${
-                        maxBorrowReached
-                          ? "border border-red-600 bg-red-600 text-white hover:bg-red-700"
-                          : "bg-blue-600 text-white hover:bg-blue-700"
-                      } disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400`}
+                      className={`h-12 w-full justify-center gap-2 ${maxBorrowReached
+                        ? "border border-red-600 bg-red-600 text-white hover:bg-red-700"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                        } disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400`}
                     >
                       บันทึกการยืม
                     </Button>
@@ -805,6 +875,35 @@ const [missingBookCode, setMissingBookCode] = useState("")
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={isScanningModalOpen} onOpenChange={(open) => {
+        setIsScanningModalOpen(open)
+        if (!open) stopScan()
+      }}>
+        <DialogContent className="sm:max-w-md bg-white rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+          <div className="flex flex-col items-center justify-center p-12 space-y-8 bg-gradient-to-b from-blue-50 to-white">
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-400 rounded-full blur-3xl opacity-20 animate-pulse" />
+              <div className="relative h-32 w-32 rounded-full bg-blue-600 flex items-center justify-center shadow-xl border-4 border-white">
+                <Nfc className="h-16 w-16 text-white animate-pulse" />
+              </div>
+            </div>
+
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-slate-900">กำลังรอสแกนบัตร...</h2>
+              <p className="text-slate-500 font-medium">โปรดวางบัตร RFID ของนักเรียนทาบกับเครื่องสแกน</p>
+            </div>
+
+            <Button
+              variant="outline"
+              className="px-8 rounded-xl border-slate-200"
+              onClick={() => setIsScanningModalOpen(false)}
+            >
+              ยกเลิก
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <footer className="mt-auto border-t border-slate-100 px-4 py-3 text-center text-xs text-slate-500">
         © {new Date().getFullYear()} Assumption College Rayong Library · Dev. by{" "}
         <a href="https://github.com/PGTHEGOD" className="text-blue-700 underline underline-offset-2" target="_blank" rel="noreferrer">
@@ -1163,13 +1262,12 @@ function QuickAddBookForm({
             </div>
             {assumptionCodeValidation.message ? (
               <p
-                className={`text-xs ${
-                  assumptionCodeValidation.status === "available"
-                    ? "text-emerald-600"
-                    : assumptionCodeValidation.status === "checking"
-                      ? "text-slate-500"
-                      : "text-red-600"
-                }`}
+                className={`text-xs ${assumptionCodeValidation.status === "available"
+                  ? "text-emerald-600"
+                  : assumptionCodeValidation.status === "checking"
+                    ? "text-slate-500"
+                    : "text-red-600"
+                  }`}
               >
                 {assumptionCodeValidation.message}
               </p>
