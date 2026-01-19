@@ -102,7 +102,7 @@ export default function BarcodeRewardsPage() {
     if (!isValid) {
       setStatusMessage({
         type: "repeat",
-        text: "รหัสบาร์โค้ดไม่ถูกต้อง กรุณาตรวจสอบ",
+        text: "การสแกนซ้ำ",
       })
       setBarcodeInput("")
       return
@@ -134,13 +134,18 @@ export default function BarcodeRewardsPage() {
       setStatusMessage({
         type: data.firstInMonth ? "new" : "repeat",
         text: data.firstInMonth
-          ? `ให้คะแนน ${data.student.firstName} ${data.student.lastName} (ห้อง ${data.student.classLevel || "-"
-            }) สำเร็จ`
-          : `บันทึกซ้ำในเดือนนี้แล้ว แต่เพิ่มคะแนนให้เรียบร้อย`,
+          ? `ให้คะแนน ${data.student.firstName} ${data.student.lastName} (รหัส ${data.student.studentCode}) (ห้อง ${data.student.classLevel || "-"
+          }) สำเร็จ`
+          : `(รหัส ${data.student.studentCode}) บันทึกซ้ำในเดือนนี้แล้ว แต่เพิ่มคะแนนให้เรียบร้อย`,
         detail: `สแกนครั้งที่ ${data.totalThisMonth} ของเดือน`,
         timestamp: formatThaiDateTime(data.recordedAt),
       })
       setStudentCode("")
+
+      // Auto-reopen dialog for next student after 3 seconds
+      setTimeout(() => {
+        setDialogOpen(true)
+      }, 3000)
     } catch (error) {
       setSubmitError((error as Error).message || "บันทึกไม่สำเร็จ")
     } finally {
@@ -212,14 +217,14 @@ export default function BarcodeRewardsPage() {
                 ← กลับไปหน้ายืม-คืน
               </Button>
             </Link>
-            
+
             <Badge variant="outline">Mobile Library</Badge>
           </div>
         </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6">
-      
+
 
         <Card className="rounded-3xl border border-slate-200 shadow-sm">
           <CardHeader className="space-y-2">
@@ -234,7 +239,7 @@ export default function BarcodeRewardsPage() {
                 className={`flex flex-col gap-1 rounded-2xl border px-4 py-3 text-sm ${statusMessage.type === "new"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                   : "border-amber-200 bg-amber-50 text-amber-900"
-                }`}
+                  }`}
               >
                 <p className="flex items-center gap-2 font-medium">
                   <Sparkles className="h-4 w-4" />
