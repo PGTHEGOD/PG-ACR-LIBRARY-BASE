@@ -1089,6 +1089,7 @@ export default function BooksPage() {
                 <FileDown className="mr-2 h-4 w-4" />
                 {exporting ? "กำลังส่งออก..." : "ส่งออก Excel"}
               </Button>
+
               <Button
                 variant="outline"
                 className="h-10"
@@ -1112,6 +1113,11 @@ export default function BooksPage() {
                 <ShieldCheck className="mr-2 h-4 w-4" />
                 {validatingAssumptionCodes ? "กำลังตรวจสอบรหัส..." : "ตรวจสอบรหัสทั้งหมด"}
               </Button>
+              <Link href="/books/barcode">
+                <Button variant="outline" className="h-10">
+                  <ScanLine className="mr-2 h-4 w-4" /> Barcode Generator
+                </Button>
+              </Link>
               <Button
                 className="h-10"
                 onClick={() => {
@@ -1132,10 +1138,10 @@ export default function BooksPage() {
             {assumptionCodeAudit && (
               <div
                 className={`rounded-xl border p-3 text-sm ${assumptionCodeAudit.type === "success"
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                    : assumptionCodeAudit.type === "error"
-                      ? "border-red-200 bg-red-50 text-red-900"
-                      : "border-slate-200 bg-slate-50 text-slate-700"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  : assumptionCodeAudit.type === "error"
+                    ? "border-red-200 bg-red-50 text-red-900"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
                   }`}
               >
                 <p>{assumptionCodeAudit.message}</p>
@@ -1307,10 +1313,10 @@ export default function BooksPage() {
                     {assumptionCodeValidation.message ? (
                       <p
                         className={`text-xs ${assumptionCodeValidation.status === "available"
-                            ? "text-emerald-600"
-                            : assumptionCodeValidation.status === "checking"
-                              ? "text-slate-500"
-                              : "text-red-600"
+                          ? "text-emerald-600"
+                          : assumptionCodeValidation.status === "checking"
+                            ? "text-slate-500"
+                            : "text-red-600"
                           }`}
                       >
                         {assumptionCodeValidation.message}
