@@ -6,7 +6,7 @@ export const runtime = "nodejs"
 
 export async function GET(request: NextRequest) {
   try {
-    const search = request.nextUrl.searchParams.get("q") || undefined
+    const search = request.nextUrl.searchParams.get("q") || request.nextUrl.searchParams.get("search") || undefined
     const page = Number(request.nextUrl.searchParams.get("page") || "1")
     const perPage = Number(request.nextUrl.searchParams.get("perPage") || "25")
     const result = await listBooks(search, Number.isFinite(page) ? page : 1, Number.isFinite(perPage) ? perPage : 25)

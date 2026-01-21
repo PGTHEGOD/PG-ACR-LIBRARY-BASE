@@ -142,10 +142,10 @@ interface MonthlyReportPayload {
 function extractSubjectLines(subject: string | undefined): string[] {
   const cleaned = subject
     ? subject
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => line.replace(/^\d+\.\s*/, ""))
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.replace(/^\d+\.\s*/, ""))
     : []
   while (cleaned.length < 2) {
     cleaned.push("")
@@ -352,7 +352,7 @@ export default function BooksPage() {
       barcodeMode === "assumption"
         ? barcodePreviewBook.assumptionCode?.trim() || "000000"
         : `${barcodePreviewBook.shelfCode || ""} ${barcodePreviewBook.authorCode || ""} ${barcodePreviewBook.edition || ""}`
-            .trim() || "รหัสไม่ครบ"
+          .trim() || "รหัสไม่ครบ"
     return `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(code)}&scale=3&background=ffffff`
   }, [barcodePreviewBook, barcodeMode])
   const barcodeCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -380,7 +380,7 @@ export default function BooksPage() {
       ctx.fillStyle = "#0f172a"
       ctx.font = "600 16px 'Sarabun', 'Noto Sans Thai', sans-serif"
       ctx.textAlign = "center"
-      
+
       if (barcodeMode === "library") {
         ctx.font = "30px 'Sarabun', 'Noto Sans Thai', sans-serif"
         ctx.fillText(`${barcodePreviewBook.shelfCode || "-"}`, width / 2, 90)
@@ -398,7 +398,7 @@ export default function BooksPage() {
       const img = new Image()
       img.crossOrigin = "anonymous"
       img.onload = () => {
-        ctx.fillText(barcodePreviewBook.shelfCode+"/"+barcodePreviewBook.title || "ชื่อหนังสือ", width / 2, 35)
+        ctx.fillText(barcodePreviewBook.shelfCode + "/" + barcodePreviewBook.title || "ชื่อหนังสือ", width / 2, 35)
 
         const barcodeWidth = Math.min(360, img.width)
         const barcodeHeight = 60
@@ -420,7 +420,7 @@ export default function BooksPage() {
     }, 80)
     return () => clearTimeout(timer)
   }, [barcodePreviewBook, barcodePreviewUrl, barcodeMode])
-  
+
 
 
   const filteredBooks = useMemo(() => {
@@ -479,7 +479,7 @@ export default function BooksPage() {
             <p className="text-xs text-slate-400">บาร์โค้ด: {book.barcode}</p>
           </TableCell>
           <TableCell className="text-sm text-slate-900">{book.category}</TableCell>
-       
+
           <TableCell>
             <Badge variant={book.status === "available" ? "outline" : "default"}>
               {book.status === "available" ? "พร้อมยืม" : "กำลังยืม"}
@@ -1131,13 +1131,12 @@ export default function BooksPage() {
           <CardContent className="space-y-3">
             {assumptionCodeAudit && (
               <div
-                className={`rounded-xl border p-3 text-sm ${
-                  assumptionCodeAudit.type === "success"
+                className={`rounded-xl border p-3 text-sm ${assumptionCodeAudit.type === "success"
                     ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                     : assumptionCodeAudit.type === "error"
                       ? "border-red-200 bg-red-50 text-red-900"
                       : "border-slate-200 bg-slate-50 text-slate-700"
-                }`}
+                  }`}
               >
                 <p>{assumptionCodeAudit.message}</p>
                 {assumptionCodeAudit.duplicates?.length ? (
@@ -1307,13 +1306,12 @@ export default function BooksPage() {
                     </div>
                     {assumptionCodeValidation.message ? (
                       <p
-                        className={`text-xs ${
-                          assumptionCodeValidation.status === "available"
+                        className={`text-xs ${assumptionCodeValidation.status === "available"
                             ? "text-emerald-600"
                             : assumptionCodeValidation.status === "checking"
                               ? "text-slate-500"
                               : "text-red-600"
-                        }`}
+                          }`}
                       >
                         {assumptionCodeValidation.message}
                       </p>
@@ -1482,7 +1480,7 @@ export default function BooksPage() {
                 </div>
               </div>
 
-              
+
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
