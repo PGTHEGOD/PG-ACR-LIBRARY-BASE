@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import type { BookRecord } from "@/lib/types"
+import { getCategoryStyle } from "@/lib/utils/category-colors"
 
 const PAGE_BOXES = 40 // 4 x 10
 const COLS = 4
@@ -533,13 +534,29 @@ export default function BarcodeGeneratorPage() {
 // -------------------------------------------------------------
 
 function CallOnlyLabel({ book }: { book: BookRecord }) {
+    const { bg, text } = getCategoryStyle(book.category || "")
     return (
-        <div className="box call-only">
-            <div>
+        <div className="box call-only" style={{ padding: 0, display: "flex", flexDirection: "column" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2mm" }}>
                 <div>{book.shelfCode || "-"}</div>
                 <div style={{ margin: "1mm 0" }}>{book.authorCode || "-"}</div>
                 <div>{book.edition ? `ฉ.${book.edition}` : ""}</div>
             </div>
+            {bg !== "transparent" && (
+                <div style={{
+                    height: "5mm",
+                    width: "100%",
+                    backgroundColor: bg,
+                    color: text,
+                    fontSize: "8pt",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold"
+                }}>
+                    {/* {book.category?.split(" ")[0]} */}
+                </div>
+            )}
         </div>
     )
 }

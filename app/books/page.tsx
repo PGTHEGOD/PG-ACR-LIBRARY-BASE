@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, useCallback } f
 import Link from "next/link"
 import NextImage from "next/image"
 import type { BookInput, BookRecord } from "@/lib/types"
+import { getCategoryStyle } from "@/lib/utils/category-colors"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -103,6 +104,7 @@ const categoryOptions = [
   { value: "ก.การศึกษา", label: "ก.การศึกษา" },
   { value: "ย.เยาวชน", label: "ย.เยาวชน" },
   { value: "ค.คู่มือ", label: "ค.คู่มือ" },
+  { value: "อ้างอิง", label: "อ้างอิง" },
 ]
 
 const printableFields: Array<{ label: string; detail?: string }> = [
@@ -383,9 +385,21 @@ export default function BooksPage() {
 
       if (barcodeMode === "library") {
         ctx.font = "30px 'Sarabun', 'Noto Sans Thai', sans-serif"
-        ctx.fillText(`${barcodePreviewBook.shelfCode || "-"}`, width / 2, 90)
-        ctx.fillText(`${barcodePreviewBook.authorCode || "-"}`, width / 2, 130)
-        ctx.fillText(` ฉ.${barcodePreviewBook.edition || "-"}`, width / 2, 170)
+        ctx.fillText(`${barcodePreviewBook.shelfCode || "-"}`, width / 2, 80)
+        ctx.fillText(`${barcodePreviewBook.authorCode || "-"}`, width / 2, 120)
+        ctx.fillText(` ฉ.${barcodePreviewBook.edition || "-"}`, width / 2, 160)
+
+        const { bg, text } = getCategoryStyle(barcodePreviewBook.category || "")
+        if (bg !== "transparent") {
+          const stripHeight = 40
+          ctx.fillStyle = bg
+          ctx.fillRect(0, height - stripHeight, width, stripHeight)
+          ctx.fillStyle = text
+          ctx.font = "bold 20px 'Sarabun', sans-serif"
+          ctx.textAlign = "center"
+          ctx.fillText(barcodePreviewBook.category?.split(" ")[0] || "", width / 2, height - 12)
+        }
+
         setBarcodeImageData(canvas.toDataURL("image/png"))
         return
       }
@@ -413,6 +427,7 @@ export default function BooksPage() {
         ctx.fillText(barcodePreviewBook.authorCode || "", 105, 140)
         ctx.textAlign = "right"
         ctx.fillText(barcodePreviewBook.assumptionCode || "000000", width - 105, 140)
+
         setBarcodeImageData(canvas.toDataURL("image/png"))
       }
       img.onerror = () => setBarcodeImageData("")
