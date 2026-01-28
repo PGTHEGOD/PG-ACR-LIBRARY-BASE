@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic"
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const token = searchParams.get("token")
+    const redirectUrl = searchParams.get("redirect")
 
     if (!token) {
         return NextResponse.json({ error: "Missing token" }, { status: 400 })
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
         )
 
         // Redirect to login page
-        const loginUrl = new URL("/student/login", req.url)
+        const loginUrl = new URL(redirectUrl + "/student/login", req.url)
         loginUrl.searchParams.set("verified", "true")
         return NextResponse.redirect(loginUrl)
     } catch (error) {

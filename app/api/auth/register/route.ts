@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         )
 
         // 6. Send verification email
-        const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || req.headers.get("origin")}/api/auth/verify?token=${verificationToken}`
+        const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || req.headers.get("origin")}/api/auth/verify?token=${verificationToken}&redirect=${req.headers.get("origin")}`
         console.log("----------------------------------------------------------------")
         console.log("📢 VERIFICATION LINK (Click here if email fails):")
         console.log(verificationUrl)

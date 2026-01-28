@@ -39,9 +39,9 @@ export async function POST(req: NextRequest) {
         }
 
         // Check verification
-        console.log("Login attempt:", { studentId: account.student_id, verified: account.is_verified, type: typeof account.is_verified })
-        console.log("Full account object:", account)
-        console.log("Account keys:", Object.keys(account))
+        // console.log("Login attempt:", { studentId: account.student_id, verified: account.is_verified, type: typeof account.is_verified })
+        // console.log("Full account object:", account)
+        // console.log("Account keys:", Object.keys(account))
 
         if (Number(account.is_verified) !== 1) {
             return NextResponse.json(
