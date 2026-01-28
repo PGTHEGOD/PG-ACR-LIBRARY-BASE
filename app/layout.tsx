@@ -18,11 +18,13 @@ export const metadata: Metadata = {
         url: '/assumption-rayoung.png',
         media: '(prefers-color-scheme: dark)',
       },
-    
+
     ],
     apple: '/assumption-rayoung.png',
   },
 }
+
+import { Toaster } from 'sonner'
 
 export default function RootLayout({
   children,
@@ -33,6 +35,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans antialiased`}>
         {children}
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   )

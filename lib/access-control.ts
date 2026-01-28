@@ -19,14 +19,7 @@ function encodeToken(value: string) {
 async function hashCode(value: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(value)
-  const subtle = globalThis.crypto?.subtle
-  if (!subtle) {
-    const { webcrypto } = await import("node:crypto")
-    const digest = await webcrypto.subtle.digest("SHA-256", data)
-    return Array.from(new Uint8Array(digest))
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("")
-  }
+  const subtle = globalThis.crypto.subtle || (await import("crypto")).webcrypto.subtle
   const digest = await subtle.digest("SHA-256", data)
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))

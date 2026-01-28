@@ -117,7 +117,7 @@ async function ensureSchema(): Promise<void> {
       const addColumn = async (name: string, definition: string) => {
         await serverConnection.query(
           `ALTER TABLE ${database}.library_books ADD COLUMN ${definition}`
-        ).catch(() => {})
+        ).catch(() => { })
       }
 
       await addColumn("volume_number", "volume_number VARCHAR(32) NULL")
@@ -128,7 +128,7 @@ async function ensureSchema(): Promise<void> {
 
       await serverConnection.query(
         `ALTER TABLE ${database}.library_books DROP INDEX uniq_book_barcode`
-      ).catch(() => {})
+      ).catch(() => { })
 
       await serverConnection.query(
         `CREATE TABLE IF NOT EXISTS ${database}.library_loans (
@@ -158,6 +158,22 @@ async function ensureSchema(): Promise<void> {
           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (id),
           KEY idx_scores_student (student_id)
+        ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
+      )
+
+      await serverConnection.query(
+        `CREATE TABLE IF NOT EXISTS ${database}.library_student_accounts (
+          student_id VARCHAR(32) NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          verification_token VARCHAR(255) NULL,
+          is_verified TINYINT(1) NOT NULL DEFAULT 0,
+          reset_token VARCHAR(255) NULL,
+          reset_expires_at DATETIME NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (student_id),
+          CONSTRAINT fk_accounts_student FOREIGN KEY (student_id) REFERENCES students(student_code) ON DELETE CASCADE
         ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
       )
 
@@ -227,17 +243,17 @@ async function ensureSchema(): Promise<void> {
         ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
       )
 
-      await serverConnection.query(`ALTER TABLE ${database}.library_print_files DROP PRIMARY KEY`).catch(() => {})
+      await serverConnection.query(`ALTER TABLE ${database}.library_print_files DROP PRIMARY KEY`).catch(() => { })
 
       await serverConnection
         .query(
           `ALTER TABLE ${database}.library_print_files ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST`
         )
-        .catch(() => {})
+        .catch(() => { })
 
       await serverConnection
         .query(`ALTER TABLE ${database}.library_print_files ADD KEY idx_print_files_session (session_id)`)
-        .catch(() => {})
+        .catch(() => { })
     } finally {
       await serverConnection.end()
     }
