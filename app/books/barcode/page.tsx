@@ -64,7 +64,7 @@ export default function BarcodeGeneratorPage() {
         if (tags.length >= MAX_IDS_PER_PAGE) return // enforce max
 
         // Create optimistic tag
-        const tempId = crypto.randomUUID()
+        const tempId = Math.random().toString(36).substring(2) + Date.now().toString(36)
         const newTag: TagItem = {
             id: tempId,
             value: trimmed,

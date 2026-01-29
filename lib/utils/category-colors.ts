@@ -14,9 +14,9 @@ export const categoryStyleMap: Record<string, CategoryStyle> = {
     "ศิลปะและนันทนาการ": { bg: "#f97316", text: "#000000" }, // Orange
     "วรรณกรรม": { bg: "#9333ea", text: "#ffffff" }, // Purple
     "ประวัติศาสตร์และภูมิศาสตร์": { bg: "#facc15", text: "#000000" }, // Yellow
-
+    "เรื่องสั้น": { bg: "#a3ff79ff", text: "#000000" }, // Light Yellow
     "น.นวนิยาย": { bg: "#fef08a", text: "#000000" }, // Light Yellow
-    "น.นิทาน": { bg: "#84cc16", text: "#000000" }, // Lime
+    "น.นิทาน": { bg: "#ffffffff", text: "#000000" }, // Lime
     "ส.สารคดี": { bg: "transparent", text: "#000000" },
     "ก.การศึกษา": { bg: "transparent", text: "#000000" },
     "ย.เยาวชน": { bg: "#d946ef", text: "#ffffff" }, // Magenta
